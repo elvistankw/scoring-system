@@ -1,32 +1,20 @@
-# Backend Dockerfile - Express API Server
-FROM node:18-alpine
+# Backend Dockerfile for Railway
+FROM node:20-alpine
 
 # Set working directory
 WORKDIR /app
 
-# Install dependencies
-COPY package.json package-lock.json* ./
-RUN npm ci --only=production
+# Copy package files
+COPY package*.json ./
 
-# Copy application files
+# Install dependencies
+RUN npm install --production
+
+# Copy application code
 COPY . .
 
-# Create non-root user
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 expressjs
-
-# Change ownership
-RUN chown -R expressjs:nodejs /app
-
-# Switch to non-root user
-USER expressjs
-
-# Expose port
+# Expose port (Railway will override this)
 EXPOSE 5000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:5000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
-
-# Start application
-CMD ["node", "index.js"]
+# Start the application
+CMD ["npm", "start"]
