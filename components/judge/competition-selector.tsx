@@ -3,8 +3,10 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useCompetitions } from '@/hooks/use-competitions';
+import { useUser } from '@/hooks/use-user';
+import { API_ENDPOINTS, getAuthHeaders } from '@/lib/api-config';
 import type { Competition, CompetitionStatus, CompetitionType } from '@/interface/competition';
 import { SkeletonCompetitionList } from '@/components/shared/loading-skeleton';
 import { useTranslation } from '@/i18n/use-dictionary';
@@ -14,12 +16,18 @@ interface CompetitionSelectorProps {
   selectedCompetition?: Competition | null;
 }
 
+interface CompetitionWithAvailability extends Competition {
+  available_athletes_count?: number;
+}
+
 export function CompetitionSelector({ onSelect, selectedCompetition }: CompetitionSelectorProps) {
   const { t } = useTranslation();
+  const { user } = useUser();
 
   const [statusFilter, setStatusFilter] = useState<CompetitionStatus | 'all'>('active');
   const [regionFilter, setRegionFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<CompetitionType | 'all'>('all');
+  const [competitionsWithAvailability, setCompetitionsWithAvailability] = useState<CompetitionWithAvailability[]>([]);
 
   // Fetch competitions with filters - judges only see active and upcoming
   const { competitions, isLoading, isError, error } = useCompetitions({
@@ -40,6 +48,54 @@ export function CompetitionSelector({ onSelect, selectedCompetition }: Competiti
       return matchesRegion && matchesType;
     });
   }, [competitions, regionFilter, typeFilter]);
+
+  // Fetch available athletes count for each active competition
+  useEffect(() => {
+    const fetchAvailableAthletesCount = async () => {
+      if (!user?.id || filteredCompetitions.length === 0) {
+        setCompetitionsWithAvailability(filteredCompetitions);
+        return;
+      }
+
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        setCompetitionsWithAvailability(filteredCompetitions);
+        return;
+      }
+
+      // Fetch available athletes count for each active competition
+      const competitionsWithCounts = await Promise.all(
+        filteredCompetitions.map(async (competition) => {
+          if (competition.status !== 'active') {
+            return { ...competition, available_athletes_count: undefined };
+          }
+
+          try {
+            const url = `${API_ENDPOINTS.athletes.list}?competition_id=${competition.id}&judge_id=${user.id}&exclude_scored=true`;
+            const response = await fetch(url, {
+              headers: getAuthHeaders(token),
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              return {
+                ...competition,
+                available_athletes_count: data.data?.count || data.data?.athletes?.length || 0,
+              };
+            }
+          } catch (error) {
+            console.error(`Failed to fetch available athletes for competition ${competition.id}:`, error);
+          }
+
+          return { ...competition, available_athletes_count: undefined };
+        })
+      );
+
+      setCompetitionsWithAvailability(competitionsWithCounts);
+    };
+
+    fetchAvailableAthletesCount();
+  }, [filteredCompetitions, user?.id]);
 
   // Get competition type label
   const getCompetitionTypeLabel = (type: CompetitionType): string => {
@@ -164,11 +220,11 @@ export function CompetitionSelector({ onSelect, selectedCompetition }: Competiti
 
       {/* Competition Count */}
       <div className="mb-4 text-sm text-gray-600 dark:text-gray-400">
-        {t('common.found')} {filteredCompetitions.length} {t('competition.competitions')}
+        {t('common.found')} {competitionsWithAvailability.length} {t('competition.competitions')}
       </div>
 
       {/* Competition Grid */}
-      {filteredCompetitions.length === 0 ? (
+      {competitionsWithAvailability.length === 0 ? (
         <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-12 text-center">
           <p className="text-gray-500 dark:text-gray-400 text-lg">
             {t('competition.noMatchingCompetitions')}
@@ -179,26 +235,33 @@ export function CompetitionSelector({ onSelect, selectedCompetition }: Competiti
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredCompetitions.map((competition) => (
-            <button
-              key={competition.id}
-              onClick={() => onSelect(competition)}
-              disabled={competition.status !== 'active'}
-              className={`
-                text-left border rounded-lg p-6 transition-all duration-200
-                ${competition.status === 'active' 
-                  ? 'hover:shadow-lg hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer'
-                  : 'cursor-not-allowed opacity-60'
-                }
-                ${
-                  selectedCompetition?.id === competition.id
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-md'
-                    : competition.status === 'active'
-                    ? 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
-                    : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700'
-                }
-              `}
-            >
+          {competitionsWithAvailability.map((competition) => {
+            // Determine scoring availability status
+            const isScoringCompleted = competition.status === 'active' && 
+                                      competition.available_athletes_count !== undefined && 
+                                      competition.available_athletes_count === 0;
+            const canScore = competition.status === 'active' && !isScoringCompleted;
+
+            return (
+              <button
+                key={competition.id}
+                onClick={() => onSelect(competition)}
+                disabled={competition.status !== 'active'}
+                className={`
+                  text-left border rounded-lg p-6 transition-all duration-200
+                  ${competition.status === 'active' 
+                    ? 'hover:shadow-lg hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer'
+                    : 'cursor-not-allowed opacity-60'
+                  }
+                  ${
+                    selectedCompetition?.id === competition.id
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-md'
+                      : competition.status === 'active'
+                      ? 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
+                      : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700'
+                  }
+                `}
+              >
               {/* Competition Name */}
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                 {competition.name}
@@ -245,12 +308,24 @@ export function CompetitionSelector({ onSelect, selectedCompetition }: Competiti
                 </div>
                 
                 {/* Scoring Availability Indicator */}
-                {competition.status === 'active' ? (
+                {isScoringCompleted ? (
+                  <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    <span>{t('judge.scoringCompleted')}</span>
+                  </div>
+                ) : canScore ? (
                   <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
                     <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                     </svg>
                     <span>{t('judge.canScore')}</span>
+                    {competition.available_athletes_count !== undefined && (
+                      <span className="ml-1 text-gray-500 dark:text-gray-400">
+                        ({competition.available_athletes_count})
+                      </span>
+                    )}
                   </div>
                 ) : (
                   <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
@@ -272,7 +347,8 @@ export function CompetitionSelector({ onSelect, selectedCompetition }: Competiti
                 </div>
               )}
             </button>
-          ))}
+          );
+        })}
         </div>
       )}
     </div>

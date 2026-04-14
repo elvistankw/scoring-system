@@ -618,40 +618,40 @@ export function ScoreSummaryClient() {
                       </div>
                       
                       <div className="grid grid-cols-2 gap-3 text-sm">
-                        {score.action_difficulty !== null && (
+                        {score.action_difficulty != null && (
                           <div className="flex justify-between">
                             <span className="text-gray-600 dark:text-gray-400">{t('score.actionDifficulty')}:</span>
-                            <span className="font-medium text-gray-900 dark:text-white">{score.action_difficulty}</span>
+                            <span className="font-medium text-gray-900 dark:text-white">{Number(score.action_difficulty).toFixed(2)}</span>
                           </div>
                         )}
-                        {score.stage_artistry !== null && (
+                        {score.stage_artistry != null && (
                           <div className="flex justify-between">
                             <span className="text-gray-600 dark:text-gray-400">{t('score.stageArtistry')}:</span>
-                            <span className="font-medium text-gray-900 dark:text-white">{score.stage_artistry}</span>
+                            <span className="font-medium text-gray-900 dark:text-white">{Number(score.stage_artistry).toFixed(2)}</span>
                           </div>
                         )}
-                        {score.action_creativity !== null && (
+                        {score.action_creativity != null && (
                           <div className="flex justify-between">
                             <span className="text-gray-600 dark:text-gray-400">{t('score.actionCreativity')}:</span>
-                            <span className="font-medium text-gray-900 dark:text-white">{score.action_creativity}</span>
+                            <span className="font-medium text-gray-900 dark:text-white">{Number(score.action_creativity).toFixed(2)}</span>
                           </div>
                         )}
-                        {score.action_fluency !== null && (
+                        {score.action_fluency != null && (
                           <div className="flex justify-between">
                             <span className="text-gray-600 dark:text-gray-400">{t('score.actionFluency')}:</span>
-                            <span className="font-medium text-gray-900 dark:text-white">{score.action_fluency}</span>
+                            <span className="font-medium text-gray-900 dark:text-white">{Number(score.action_fluency).toFixed(2)}</span>
                           </div>
                         )}
-                        {score.costume_styling !== null && (
+                        {score.costume_styling != null && (
                           <div className="flex justify-between">
                             <span className="text-gray-600 dark:text-gray-400">{t('score.costumeStyling')}:</span>
-                            <span className="font-medium text-gray-900 dark:text-white">{score.costume_styling}</span>
+                            <span className="font-medium text-gray-900 dark:text-white">{Number(score.costume_styling).toFixed(2)}</span>
                           </div>
                         )}
-                        {score.action_interaction !== null && (
+                        {score.action_interaction != null && (
                           <div className="flex justify-between">
                             <span className="text-gray-600 dark:text-gray-400">{t('score.actionInteraction')}:</span>
-                            <span className="font-medium text-gray-900 dark:text-white">{score.action_interaction}</span>
+                            <span className="font-medium text-gray-900 dark:text-white">{Number(score.action_interaction).toFixed(2)}</span>
                           </div>
                         )}
                       </div>

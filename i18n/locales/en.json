@@ -337,6 +337,7 @@
     "onlyActiveCompetitionsCanBeScored": "Only competitions with \"Active\" status can be scored.",
     "canScore": "Can Score",
     "cannotScore": "Cannot Score",
+    "scoringCompleted": "Scoring Completed",
     "athleteNoScores": "This athlete has not received any scores yet",
     "athletesCount": "athletes",
     "noAthletesInCompetition": "No athletes in this competition",

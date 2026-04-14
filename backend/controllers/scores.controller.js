@@ -214,12 +214,12 @@ const submitScore = async (req, res, next) => {
       competition_id,
       athlete_id,
       judge_id,
-      scores.action_difficulty || null,
-      scores.stage_artistry || null,
-      scores.action_creativity || null,
-      scores.action_fluency || null,
-      scores.costume_styling || null,
-      scores.action_interaction || null
+      scores.action_difficulty !== undefined ? scores.action_difficulty : null,
+      scores.stage_artistry !== undefined ? scores.stage_artistry : null,
+      scores.action_creativity !== undefined ? scores.action_creativity : null,
+      scores.action_fluency !== undefined ? scores.action_fluency : null,
+      scores.costume_styling !== undefined ? scores.costume_styling : null,
+      scores.action_interaction !== undefined ? scores.action_interaction : null
     ];
 
     const insertResult = await client.query(insertQuery, insertValues);
