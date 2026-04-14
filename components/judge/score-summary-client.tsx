@@ -107,8 +107,34 @@ export function ScoreSummaryClient() {
       }
 
       const data = await response.json();
-      console.log('Scores data:', data);
-      setScores(data.data?.scores || []);
+      console.log('📊 API Response:', data);
+      
+      // Backend returns data directly as an array, not nested in a scores property
+      const scoresArray = Array.isArray(data.data) ? data.data : (data.data?.scores || []);
+      console.log('📊 Scores array length:', scoresArray.length);
+      
+      // 🔍 DEBUG: Check each score object
+      if (scoresArray.length > 0) {
+        scoresArray.forEach((score: any, index: number) => {
+          console.log(`Score ${index + 1}:`, {
+            id: score.id,
+            action_difficulty: score.action_difficulty,
+            stage_artistry: score.stage_artistry,
+            action_creativity: score.action_creativity,
+            action_fluency: score.action_fluency,
+            costume_styling: score.costume_styling,
+            action_interaction: score.action_interaction,
+            types: {
+              action_difficulty: typeof score.action_difficulty,
+              stage_artistry: typeof score.stage_artistry,
+            }
+          });
+        });
+      } else {
+        console.log('⚠️ No scores found in response');
+      }
+      
+      setScores(scoresArray);
     } catch (error) {
       console.error('Error fetching scores:', error);
       
@@ -618,40 +644,53 @@ export function ScoreSummaryClient() {
                       </div>
                       
                       <div className="grid grid-cols-2 gap-3 text-sm">
-                        {score.action_difficulty != null && (
+                        {/* 显示所有评分项，包括0分 */}
+                        {(score.action_difficulty !== null && score.action_difficulty !== undefined) && (
                           <div className="flex justify-between">
                             <span className="text-gray-600 dark:text-gray-400">{t('score.actionDifficulty')}:</span>
-                            <span className="font-medium text-gray-900 dark:text-white">{Number(score.action_difficulty).toFixed(2)}</span>
+                            <span className={`font-medium ${score.action_difficulty === 0 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-900 dark:text-white'}`}>
+                              {Number(score.action_difficulty).toFixed(2)}
+                            </span>
                           </div>
                         )}
-                        {score.stage_artistry != null && (
+                        {(score.stage_artistry !== null && score.stage_artistry !== undefined) && (
                           <div className="flex justify-between">
                             <span className="text-gray-600 dark:text-gray-400">{t('score.stageArtistry')}:</span>
-                            <span className="font-medium text-gray-900 dark:text-white">{Number(score.stage_artistry).toFixed(2)}</span>
+                            <span className={`font-medium ${score.stage_artistry === 0 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-900 dark:text-white'}`}>
+                              {Number(score.stage_artistry).toFixed(2)}
+                            </span>
                           </div>
                         )}
-                        {score.action_creativity != null && (
+                        {(score.action_creativity !== null && score.action_creativity !== undefined) && (
                           <div className="flex justify-between">
                             <span className="text-gray-600 dark:text-gray-400">{t('score.actionCreativity')}:</span>
-                            <span className="font-medium text-gray-900 dark:text-white">{Number(score.action_creativity).toFixed(2)}</span>
+                            <span className={`font-medium ${score.action_creativity === 0 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-900 dark:text-white'}`}>
+                              {Number(score.action_creativity).toFixed(2)}
+                            </span>
                           </div>
                         )}
-                        {score.action_fluency != null && (
+                        {(score.action_fluency !== null && score.action_fluency !== undefined) && (
                           <div className="flex justify-between">
                             <span className="text-gray-600 dark:text-gray-400">{t('score.actionFluency')}:</span>
-                            <span className="font-medium text-gray-900 dark:text-white">{Number(score.action_fluency).toFixed(2)}</span>
+                            <span className={`font-medium ${score.action_fluency === 0 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-900 dark:text-white'}`}>
+                              {Number(score.action_fluency).toFixed(2)}
+                            </span>
                           </div>
                         )}
-                        {score.costume_styling != null && (
+                        {(score.costume_styling !== null && score.costume_styling !== undefined) && (
                           <div className="flex justify-between">
                             <span className="text-gray-600 dark:text-gray-400">{t('score.costumeStyling')}:</span>
-                            <span className="font-medium text-gray-900 dark:text-white">{Number(score.costume_styling).toFixed(2)}</span>
+                            <span className={`font-medium ${score.costume_styling === 0 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-900 dark:text-white'}`}>
+                              {Number(score.costume_styling).toFixed(2)}
+                            </span>
                           </div>
                         )}
-                        {score.action_interaction != null && (
+                        {(score.action_interaction !== null && score.action_interaction !== undefined) && (
                           <div className="flex justify-between">
                             <span className="text-gray-600 dark:text-gray-400">{t('score.actionInteraction')}:</span>
-                            <span className="font-medium text-gray-900 dark:text-white">{Number(score.action_interaction).toFixed(2)}</span>
+                            <span className={`font-medium ${score.action_interaction === 0 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-900 dark:text-white'}`}>
+                              {Number(score.action_interaction).toFixed(2)}
+                            </span>
                           </div>
                         )}
                       </div>

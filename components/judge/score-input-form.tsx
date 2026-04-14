@@ -123,8 +123,16 @@ export function ScoreInputForm({ competition, athlete, onSubmitSuccess }: ScoreI
   const validateScores = (): boolean => {
     // Check all fields are filled
     for (const field of fields) {
-      if (!scores[field] || scores[field].trim() === '') {
-        toast.error(t('judge.fillAllScores'));
+      const value = scores[field];
+      if (value === '' || value === null || value === undefined) {
+        toast.error(`${getDimensionLabel(field)}: ${t('judge.fillAllScores')}`);
+        return false;
+      }
+      
+      // Check if it's a valid number (including 0)
+      const numValue = parseFloat(value);
+      if (isNaN(numValue)) {
+        toast.error(`${getDimensionLabel(field)}: ${t('judge.invalidNumber')}`);
         return false;
       }
     }
@@ -134,7 +142,7 @@ export function ScoreInputForm({ competition, athlete, onSubmitSuccess }: ScoreI
       const value = parseFloat(scores[field]);
       const maxScore = getDimensionWeight(field);
       
-      if (isNaN(value) || value < 0 || value > maxScore) {
+      if (value < 0 || value > maxScore) {
         toast.error(`${getDimensionLabel(field)}: ${t('judge.scoreRangeError')} 0-${maxScore}`);
         return false;
       }
@@ -193,13 +201,24 @@ export function ScoreInputForm({ competition, athlete, onSubmitSuccess }: ScoreI
         scores: scoreData,
       };
 
+      // 🔍 DEBUG: Log request data
+      console.log('🔍 Submitting score:', {
+        competition_id: competition.id,
+        competition_type: competition.competition_type,
+        athlete_id: athlete.id,
+        athlete_name: athlete.name,
+        scores: scoreData
+      });
+
       const response = await fetch(API_ENDPOINTS.scores.submit, {
         method: 'POST',
         headers: getAuthHeaders(token),
         body: JSON.stringify(requestBody),
       });
 
+      console.log('📡 Response status:', response.status);
       const data = await response.json();
+      console.log('📡 Response data:', data);
 
       if (!response.ok) {
         throw new Error(data.message || t('judge.scoreSubmitted'));

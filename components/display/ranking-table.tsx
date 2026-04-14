@@ -136,10 +136,12 @@ export function RankingTable({ competitionId, competitionType, region }: Ranking
     return [];
   };
 
-  // Format score value for display
+  // Format score value for display (including 0 scores)
   const formatScore = (score: string | null) => {
-    if (!score) return '-';
-    return parseFloat(score).toFixed(2);
+    if (score === null || score === undefined) return '-';
+    const numScore = parseFloat(score);
+    if (isNaN(numScore)) return '-';
+    return numScore.toFixed(2);
   };
 
   // Connection status indicator
@@ -303,11 +305,15 @@ export function RankingTable({ competitionId, competitionType, region }: Ranking
                   </div>
                   
                   {/* Score Dimensions */}
-                  {scoreValues.map((value, idx) => (
-                    <div key={idx} className="text-center text-xl font-bold text-blue-400">
-                      {formatScore(value)}
-                    </div>
-                  ))}
+                  {scoreValues.map((value, idx) => {
+                    const formattedScore = formatScore(value);
+                    const isZero = value !== null && parseFloat(value) === 0;
+                    return (
+                      <div key={idx} className={`text-center text-xl font-bold ${isZero ? 'text-orange-400' : 'text-blue-400'}`}>
+                        {formattedScore}
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })}

@@ -130,8 +130,18 @@ const submitScore = async (req, res, next) => {
     const { competition_id, athlete_id, scores } = req.body;
     const judge_id = req.user.id; // From JWT authentication middleware
 
+    // 🔍 DEBUG: Log received data
+    console.log('\n🔍 DEBUG - Score Submission Request:');
+    console.log('Judge ID:', judge_id);
+    console.log('Competition ID:', competition_id);
+    console.log('Athlete ID:', athlete_id);
+    console.log('Scores object:', JSON.stringify(scores, null, 2));
+    console.log('Scores type:', typeof scores);
+    console.log('Scores keys:', scores ? Object.keys(scores) : 'null');
+
     // 1. Validate request body
     if (!competition_id || !athlete_id || !scores) {
+      console.log('❌ Validation failed: Missing required fields');
       return next(new AppError('Missing required fields: competition_id, athlete_id, scores', 400));
     }
 
@@ -221,6 +231,17 @@ const submitScore = async (req, res, next) => {
       scores.costume_styling !== undefined ? scores.costume_styling : null,
       scores.action_interaction !== undefined ? scores.action_interaction : null
     ];
+
+    // 🔍 DEBUG: Log insert values
+    console.log('\n🔍 DEBUG - Insert Values:');
+    console.log('Values array:', insertValues);
+    console.log('Score fields:');
+    console.log('  action_difficulty:', scores.action_difficulty, '→', insertValues[3]);
+    console.log('  stage_artistry:', scores.stage_artistry, '→', insertValues[4]);
+    console.log('  action_creativity:', scores.action_creativity, '→', insertValues[5]);
+    console.log('  action_fluency:', scores.action_fluency, '→', insertValues[6]);
+    console.log('  costume_styling:', scores.costume_styling, '→', insertValues[7]);
+    console.log('  action_interaction:', scores.action_interaction, '→', insertValues[8]);
 
     const insertResult = await client.query(insertQuery, insertValues);
     const savedScore = insertResult.rows[0];

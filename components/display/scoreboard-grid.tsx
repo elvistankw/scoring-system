@@ -215,8 +215,8 @@ export function ScoreboardGrid({ competitionId, competitionType }: ScoreboardGri
                     {score.judge_name}
                   </div>
                   {scoreValues.map((value, idx) => (
-                    <div key={idx} className="text-center text-xl font-bold text-blue-400">
-                      {value?.toFixed(2) || '-'}
+                    <div key={idx} className={`text-center text-xl font-bold ${value === 0 ? 'text-orange-400' : 'text-blue-400'}`}>
+                      {value !== null && value !== undefined ? value.toFixed(2) : '-'}
                     </div>
                   ))}
                 </div>

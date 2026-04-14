@@ -337,6 +337,7 @@
     "onlyActiveCompetitionsCanBeScored": "只有状态为\"进行中\"的比赛才能进行评分。",
     "canScore": "可评分",
     "cannotScore": "不可评分",
+    "scoringCompleted": "评分已完成",
     "athleteNoScores": "该选手还没有收到任何评分",
     "athletesCount": "位选手",
     "noAthletesInCompetition": "该比赛暂无选手",
