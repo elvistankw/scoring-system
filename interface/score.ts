@@ -99,7 +99,8 @@ export interface LatestScoresResponse {
 // Helper type to get score dimensions by competition type
 export type ScoreDimensionsByType<T extends CompetitionType> = 
   T extends 'individual' ? IndividualScores :
-  T extends 'duo_team' ? DuoTeamScores :
+  T extends 'duo' ? DuoTeamScores :
+  T extends 'team' ? DuoTeamScores :
   T extends 'challenge' ? ChallengeScores :
   never;
 
