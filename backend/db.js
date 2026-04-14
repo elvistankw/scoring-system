@@ -6,28 +6,35 @@ require("dotenv").config();
 const { monitorConnectionPool } = require('./utils/pool-monitor');
 
 // Connection pool configuration with performance optimization
-const pool = new Pool({
-  user: process.env.DB_USER || 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'scoring',
-  password: process.env.DB_PASSWORD,
-  port: parseInt(process.env.DB_PORT || '5432', 10),
-  
-  // Connection pool settings for optimal performance
-  max: 20,                    // Maximum number of clients in the pool
-  min: 5,                     // Minimum number of clients in the pool
-  idleTimeoutMillis: 30000,   // Close idle clients after 30 seconds
-  connectionTimeoutMillis: 10000, // Return error after 10 seconds if connection cannot be established
-  
-  // Statement timeout to prevent long-running queries
-  statement_timeout: 30000,   // 30 seconds max per query
-  
-  // Query timeout
-  query_timeout: 30000,
-  
-  // Application name for monitoring
-  application_name: 'realtime-scoring-system'
-});
+// Support both DATABASE_URL (Railway/production) and individual env vars (local dev)
+const poolConfig = process.env.DATABASE_URL 
+  ? {
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      max: 20,
+      min: 5,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 10000,
+      statement_timeout: 30000,
+      query_timeout: 30000,
+      application_name: 'realtime-scoring-system'
+    }
+  : {
+      user: process.env.DB_USER || 'postgres',
+      host: process.env.DB_HOST || 'localhost',
+      database: process.env.DB_NAME || 'scoring',
+      password: process.env.DB_PASSWORD,
+      port: parseInt(process.env.DB_PORT || '5432', 10),
+      max: 20,
+      min: 5,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 10000,
+      statement_timeout: 30000,
+      query_timeout: 30000,
+      application_name: 'realtime-scoring-system'
+    };
+
+const pool = new Pool(poolConfig);
 
 // Connection event handlers
 pool.on('connect', (client) => {
