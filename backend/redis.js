@@ -19,6 +19,9 @@ const redisConfig = {
   family: parseInt(process.env.REDIS_FAMILY || '4', 10),
   keepAlive: parseInt(process.env.REDIS_KEEPALIVE || '30000', 10),
   
+  // TLS configuration for Upstash and other cloud Redis providers
+  tls: process.env.REDIS_TLS === 'true' ? {} : undefined,
+  
   // Connection timeouts
   connectTimeout: parseInt(process.env.REDIS_CONNECT_TIMEOUT || '5000', 10),
   commandTimeout: parseInt(process.env.REDIS_COMMAND_TIMEOUT || '5000', 10),
