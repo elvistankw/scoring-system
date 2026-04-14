@@ -1,0 +1,12 @@
+# 忽略后端文件夹
+backend/
+
+# 忽略其他不需要的文件
+*.md
+!README.md
+.git/
+.github/
+.kiro/
+scripts/
+*.log
+*.sql
