@@ -16,7 +16,11 @@ const COMPETITION_TYPE_RULES = {
     requiredFields: ['action_difficulty', 'stage_artistry', 'action_creativity', 'action_fluency', 'costume_styling'],
     fieldCount: 5
   },
-  duo_team: {
+  duo: {
+    requiredFields: ['action_difficulty', 'stage_artistry', 'action_interaction', 'action_creativity', 'costume_styling'],
+    fieldCount: 5
+  },
+  team: {
     requiredFields: ['action_difficulty', 'stage_artistry', 'action_interaction', 'action_creativity', 'costume_styling'],
     fieldCount: 5
   },

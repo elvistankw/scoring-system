@@ -68,7 +68,7 @@ export function RealtimeScoreDisplay({ competitionId }: RealtimeScoreDisplayProp
           <div>服装: {individualScores.costume_styling}</div>
         </div>
       );
-    } else if (competition_type === 'duo_team') {
+    } else if (competition_type === 'duo' || competition_type === 'team') {
       const duoScores = dimensions as any;
       return (
         <div className="grid grid-cols-5 gap-2">

@@ -161,8 +161,8 @@ const validateScoreSubmission = (req, res, next) => {
     errors.push('athlete_id must be a valid integer');
   }
 
-  if (!competition_type || !['individual', 'duo_team', 'challenge'].includes(competition_type)) {
-    errors.push('competition_type must be one of: individual, duo_team, challenge');
+  if (!competition_type || !['individual', 'duo', 'team', 'challenge'].includes(competition_type)) {
+    errors.push('competition_type must be one of: individual, duo, team, challenge');
   }
 
   if (!scores || typeof scores !== 'object') {
@@ -187,7 +187,7 @@ const validateScoreSubmission = (req, res, next) => {
       validateScore('action_creativity', 0, 100);
       validateScore('action_fluency', 0, 100);
       validateScore('costume_styling', 0, 100);
-    } else if (competition_type === 'duo_team') {
+    } else if (competition_type === 'duo' || competition_type === 'team') {
       // Duo/Team: 5 dimensions (interaction instead of fluency)
       validateScore('action_difficulty', 0, 100);
       validateScore('stage_artistry', 0, 100);

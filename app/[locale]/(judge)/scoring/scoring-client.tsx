@@ -205,7 +205,8 @@ export default function ScoringPageClient() {
             </span>
             <span className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-full text-sm font-medium">
               {selectedCompetition.competition_type === 'individual' && t('competition.individual')}
-              {selectedCompetition.competition_type === 'duo_team' && t('competition.duoTeam')}
+              {selectedCompetition.competition_type === 'duo' && t('competition.duo')}
+              {selectedCompetition.competition_type === 'team' && t('competition.team')}
               {selectedCompetition.competition_type === 'challenge' && t('competition.challenge')}
             </span>
           </div>
@@ -261,8 +262,8 @@ export default function ScoringPageClient() {
                       </span>
                     )}
                   </button>
-                  {/* Only show "Sort by Team" button for duo_team competitions */}
-                  {selectedCompetition?.competition_type === 'duo_team' && (
+                  {/* Only show "Sort by Team" button for duo/team competitions */}
+                  {(selectedCompetition?.competition_type === 'duo' || selectedCompetition?.competition_type === 'team') && (
                     <button
                       onClick={() => handleSortChange('team')}
                       className={`px-3 py-1.5 text-sm rounded-md transition-all ${

@@ -96,7 +96,7 @@ export function RankingTable({ competitionId, competitionType, region }: Ranking
     
     if (competitionType === 'individual') {
       return [...baseHeaders, t('score.actionDifficulty'), t('score.stageArtistry'), t('score.actionCreativity'), t('score.actionFluency'), t('score.costumeStyling')];
-    } else if (competitionType === 'duo_team') {
+    } else if (competitionType === 'duo' || competitionType === 'team') {
       return [...baseHeaders, t('score.actionDifficulty'), t('score.stageArtistry'), t('score.actionInteraction'), t('score.actionCreativity'), t('score.costumeStyling')];
     } else if (competitionType === 'challenge') {
       return [...baseHeaders, t('score.actionDifficulty'), t('score.actionCreativity'), t('score.actionFluency')];
@@ -117,7 +117,7 @@ export function RankingTable({ competitionId, competitionType, region }: Ranking
         average_scores.action_fluency,
         average_scores.costume_styling
       ];
-    } else if (competitionType === 'duo_team') {
+    } else if (competitionType === 'duo' || competitionType === 'team') {
       return [
         average_scores.action_difficulty,
         average_scores.stage_artistry,

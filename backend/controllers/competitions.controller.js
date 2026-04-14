@@ -817,7 +817,8 @@ const exportCompetitionToExcel = async (req, res, next) => {
       ['比赛信息'],
       ['比赛名称', safeString(competition.name)],
       ['比赛类型', competition.competition_type === 'individual' ? '个人赛' : 
-                   competition.competition_type === 'duo_team' ? '双人/团队赛' : '挑战赛'],
+                   competition.competition_type === 'duo' ? '双人赛' :
+                   competition.competition_type === 'team' ? '团体赛' : '挑战赛'],
       ['赛区', safeString(competition.region)],
       ['状态', competition.status === 'active' ? '进行中' : 
                competition.status === 'completed' ? '已结束' : '即将开始'],

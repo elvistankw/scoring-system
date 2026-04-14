@@ -154,7 +154,8 @@ export function RankingsClient() {
             <div className="ml-auto">
               <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-900/50 text-blue-300 border border-blue-700">
                 {selectedCompetition.competition_type === 'individual' && t('competition.individual')}
-                {selectedCompetition.competition_type === 'duo_team' && t('competition.duoTeam')}
+                {selectedCompetition.competition_type === 'duo' && t('competition.duo')}
+                {selectedCompetition.competition_type === 'team' && t('competition.team')}
                 {selectedCompetition.competition_type === 'challenge' && t('competition.challenge')}
               </span>
             </div>
