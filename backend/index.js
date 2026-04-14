@@ -50,7 +50,7 @@ app.set('trust proxy', 1);
 app.use(securityHeaders);
 
 // CORS configuration with security hardening
-app.use(cors(getCorsConfig(process.env.FRONTEND_URL)));
+app.use(cors(getCorsConfig(process.env.CORS_ORIGIN || process.env.FRONTEND_URL)));
 
 // Body parser middleware with size limits for security
 app.use(express.json({ limit: '10kb' })); // Limit body size for security
