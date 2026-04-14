@@ -644,11 +644,11 @@ export function ScoreSummaryClient() {
                       </div>
                       
                       <div className="grid grid-cols-2 gap-3 text-sm">
-                        {/* 显示所有评分项，包括0分 */}
+                        {/* 显示所有评分项，包括0分 - 处理字符串和数字类型 */}
                         {(score.action_difficulty !== null && score.action_difficulty !== undefined) && (
                           <div className="flex justify-between">
                             <span className="text-gray-600 dark:text-gray-400">{t('score.actionDifficulty')}:</span>
-                            <span className={`font-medium ${score.action_difficulty === 0 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-900 dark:text-white'}`}>
+                            <span className={`font-medium ${Number(score.action_difficulty) === 0 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-900 dark:text-white'}`}>
                               {Number(score.action_difficulty).toFixed(2)}
                             </span>
                           </div>
@@ -656,7 +656,7 @@ export function ScoreSummaryClient() {
                         {(score.stage_artistry !== null && score.stage_artistry !== undefined) && (
                           <div className="flex justify-between">
                             <span className="text-gray-600 dark:text-gray-400">{t('score.stageArtistry')}:</span>
-                            <span className={`font-medium ${score.stage_artistry === 0 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-900 dark:text-white'}`}>
+                            <span className={`font-medium ${Number(score.stage_artistry) === 0 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-900 dark:text-white'}`}>
                               {Number(score.stage_artistry).toFixed(2)}
                             </span>
                           </div>
@@ -664,7 +664,7 @@ export function ScoreSummaryClient() {
                         {(score.action_creativity !== null && score.action_creativity !== undefined) && (
                           <div className="flex justify-between">
                             <span className="text-gray-600 dark:text-gray-400">{t('score.actionCreativity')}:</span>
-                            <span className={`font-medium ${score.action_creativity === 0 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-900 dark:text-white'}`}>
+                            <span className={`font-medium ${Number(score.action_creativity) === 0 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-900 dark:text-white'}`}>
                               {Number(score.action_creativity).toFixed(2)}
                             </span>
                           </div>
@@ -672,7 +672,7 @@ export function ScoreSummaryClient() {
                         {(score.action_fluency !== null && score.action_fluency !== undefined) && (
                           <div className="flex justify-between">
                             <span className="text-gray-600 dark:text-gray-400">{t('score.actionFluency')}:</span>
-                            <span className={`font-medium ${score.action_fluency === 0 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-900 dark:text-white'}`}>
+                            <span className={`font-medium ${Number(score.action_fluency) === 0 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-900 dark:text-white'}`}>
                               {Number(score.action_fluency).toFixed(2)}
                             </span>
                           </div>
@@ -680,7 +680,7 @@ export function ScoreSummaryClient() {
                         {(score.costume_styling !== null && score.costume_styling !== undefined) && (
                           <div className="flex justify-between">
                             <span className="text-gray-600 dark:text-gray-400">{t('score.costumeStyling')}:</span>
-                            <span className={`font-medium ${score.costume_styling === 0 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-900 dark:text-white'}`}>
+                            <span className={`font-medium ${Number(score.costume_styling) === 0 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-900 dark:text-white'}`}>
                               {Number(score.costume_styling).toFixed(2)}
                             </span>
                           </div>
@@ -688,7 +688,7 @@ export function ScoreSummaryClient() {
                         {(score.action_interaction !== null && score.action_interaction !== undefined) && (
                           <div className="flex justify-between">
                             <span className="text-gray-600 dark:text-gray-400">{t('score.actionInteraction')}:</span>
-                            <span className={`font-medium ${score.action_interaction === 0 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-900 dark:text-white'}`}>
+                            <span className={`font-medium ${Number(score.action_interaction) === 0 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-900 dark:text-white'}`}>
                               {Number(score.action_interaction).toFixed(2)}
                             </span>
                           </div>
