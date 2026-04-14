@@ -342,10 +342,11 @@ const updateCompetition = async (req, res, next) => {
       }
     }
 
-    // Auto-determine status based on start_date if status is not explicitly provided
+    // Auto-determine status based on start_date
+    // Priority: If start_date is provided, auto-calculate status (unless status is 'completed')
     let finalStatus = status;
     
-    if (!status && start_date !== undefined) {
+    if (start_date !== undefined) {
       // Get today's date string in YYYY-MM-DD format
       const today = new Date();
       const todayStr = today.getFullYear() + '-' + 
@@ -358,15 +359,20 @@ const updateCompetition = async (req, res, next) => {
                       String(startDateObj.getMonth() + 1).padStart(2, '0') + '-' + 
                       String(startDateObj.getDate()).padStart(2, '0');
       
-      // Compare date strings directly to avoid timezone issues
-      if (startStr <= todayStr) {
-        finalStatus = 'active';
-        console.log(`✅ Auto-setting competition status to 'active' because start_date (${start_date}) is today or in the past`);
-        console.log(`   Today: ${todayStr}, Start: ${startStr}`);
+      // Only auto-update status if not explicitly set to 'completed'
+      if (status !== 'completed') {
+        // Compare date strings directly to avoid timezone issues
+        if (startStr <= todayStr) {
+          finalStatus = 'active';
+          console.log(`✅ Auto-setting competition status to 'active' because start_date (${start_date}) is today or in the past`);
+          console.log(`   Today: ${todayStr}, Start: ${startStr}`);
+        } else {
+          finalStatus = 'upcoming';
+          console.log(`ℹ️  Auto-setting competition status to 'upcoming' because start_date (${start_date}) is in the future`);
+          console.log(`   Today: ${todayStr}, Start: ${startStr}`);
+        }
       } else {
-        finalStatus = 'upcoming';
-        console.log(`ℹ️  Auto-setting competition status to 'upcoming' because start_date (${start_date}) is in the future`);
-        console.log(`   Today: ${todayStr}, Start: ${startStr}`);
+        console.log(`ℹ️  Keeping status as 'completed' (explicitly set)`);
       }
     }
 
