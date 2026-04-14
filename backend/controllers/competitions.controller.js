@@ -57,7 +57,7 @@ const getAllCompetitions = async (req, res, next) => {
     // Role-based filtering: judges can only see active and upcoming competitions
     // EXCEPT when include_completed_for_summary is true (for score summary page)
     if (userRole === 'judge' && include_completed_for_summary !== 'true') {
-      query += ` AND status IN ('active', 'upcoming')`;
+      query += ` AND c.status IN ('active', 'upcoming')`;
     }
 
     if (status) {
@@ -73,19 +73,19 @@ const getAllCompetitions = async (req, res, next) => {
           }
         });
       }
-      query += ` AND status = $${paramCount}`;
+      query += ` AND c.status = $${paramCount}`;
       params.push(status);
     }
 
     if (region) {
       paramCount++;
-      query += ` AND region = $${paramCount}`;
+      query += ` AND c.region = $${paramCount}`;
       params.push(region);
     }
 
     if (type) {
       paramCount++;
-      query += ` AND competition_type = $${paramCount}`;
+      query += ` AND c.competition_type = $${paramCount}`;
       params.push(type);
     }
 
