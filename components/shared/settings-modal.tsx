@@ -69,27 +69,27 @@ export function SettingsModal({ isOpen, onClose, currentLocale }: SettingsModalP
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Backdrop with blur effect */}
       <div
-        className="fixed inset-0 bg-black bg-opacity-50 z-50 transition-opacity"
+        className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 transition-all duration-300"
         onClick={handleClose}
         aria-hidden="true"
       />
 
-      {/* Modal */}
+      {/* Modal with Glassmorphism effect */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div
-          className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto"
+          className="backdrop-blur-xl bg-white/80 dark:bg-gray-900/80 rounded-2xl shadow-2xl border border-white/20 dark:border-gray-700/30 max-w-md w-full max-h-[90vh] overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+          {/* Header with glass effect */}
+          <div className="flex items-center justify-between p-6 border-b border-white/20 dark:border-gray-700/30 backdrop-blur-sm">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
               {t('common.settings')}
             </h2>
             <button
               onClick={handleClose}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              className="p-2 rounded-xl hover:bg-white/20 dark:hover:bg-gray-700/20 transition-all duration-200 backdrop-blur-sm"
               aria-label={t('common.close')}
             >
               <svg
@@ -108,30 +108,30 @@ export function SettingsModal({ isOpen, onClose, currentLocale }: SettingsModalP
             </button>
           </div>
 
-          {/* Content */}
-          <div className="p-6 space-y-6">
+          {/* Content with scrollable glass container */}
+          <div className="p-6 space-y-6 max-h-[calc(90vh-120px)] overflow-y-auto">
             {/* Theme Section */}
             <div>
               <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
                 {t('theme.appearance')}
               </h3>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {/* Light Theme */}
                 <button
                   onClick={() => handleThemeChange('light')}
                   className={`
-                    w-full flex items-center gap-3 p-4 rounded-lg border-2 transition-all
+                    w-full flex items-center gap-3 p-4 rounded-xl border transition-all duration-200 backdrop-blur-sm
                     ${
                       selectedTheme === 'light'
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
-                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                        ? 'border-blue-500/50 bg-blue-500/10 shadow-lg shadow-blue-500/20'
+                        : 'border-white/30 dark:border-gray-700/30 bg-white/20 dark:bg-gray-800/20 hover:bg-white/30 dark:hover:bg-gray-800/30 hover:border-white/40 dark:hover:border-gray-700/40'
                     }
                   `}
                 >
                   <div className="flex-shrink-0">
-                    <div className="w-10 h-10 rounded-lg bg-white border-2 border-gray-300 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-yellow-400 to-orange-500 border border-white/30 flex items-center justify-center shadow-lg">
                       <svg
-                        className="w-5 h-5 text-yellow-500"
+                        className="w-5 h-5 text-white"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -149,22 +149,26 @@ export function SettingsModal({ isOpen, onClose, currentLocale }: SettingsModalP
                     <div className="font-medium text-gray-900 dark:text-white">
                       {t('theme.light')}
                     </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
                       {t('theme.lightDesc')}
                     </div>
                   </div>
                   {selectedTheme === 'light' && (
-                    <svg
-                      className="w-5 h-5 text-blue-500"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
+                    <div className="flex-shrink-0">
+                      <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
+                        <svg
+                          className="w-4 h-4 text-white"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </div>
+                    </div>
                   )}
                 </button>
 
@@ -172,18 +176,18 @@ export function SettingsModal({ isOpen, onClose, currentLocale }: SettingsModalP
                 <button
                   onClick={() => handleThemeChange('dark')}
                   className={`
-                    w-full flex items-center gap-3 p-4 rounded-lg border-2 transition-all
+                    w-full flex items-center gap-3 p-4 rounded-xl border transition-all duration-200 backdrop-blur-sm
                     ${
                       selectedTheme === 'dark'
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
-                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                        ? 'border-blue-500/50 bg-blue-500/10 shadow-lg shadow-blue-500/20'
+                        : 'border-white/30 dark:border-gray-700/30 bg-white/20 dark:bg-gray-800/20 hover:bg-white/30 dark:hover:bg-gray-800/30 hover:border-white/40 dark:hover:border-gray-700/40'
                     }
                   `}
                 >
                   <div className="flex-shrink-0">
-                    <div className="w-10 h-10 rounded-lg bg-gray-800 border-2 border-gray-600 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-700 border border-white/30 flex items-center justify-center shadow-lg">
                       <svg
-                        className="w-5 h-5 text-blue-400"
+                        className="w-5 h-5 text-white"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -201,22 +205,26 @@ export function SettingsModal({ isOpen, onClose, currentLocale }: SettingsModalP
                     <div className="font-medium text-gray-900 dark:text-white">
                       {t('theme.dark')}
                     </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
                       {t('theme.darkDesc')}
                     </div>
                   </div>
                   {selectedTheme === 'dark' && (
-                    <svg
-                      className="w-5 h-5 text-blue-500"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
+                    <div className="flex-shrink-0">
+                      <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
+                        <svg
+                          className="w-4 h-4 text-white"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </div>
+                    </div>
                   )}
                 </button>
 
@@ -224,18 +232,18 @@ export function SettingsModal({ isOpen, onClose, currentLocale }: SettingsModalP
                 <button
                   onClick={() => handleThemeChange('system')}
                   className={`
-                    w-full flex items-center gap-3 p-4 rounded-lg border-2 transition-all
+                    w-full flex items-center gap-3 p-4 rounded-xl border transition-all duration-200 backdrop-blur-sm
                     ${
                       selectedTheme === 'system'
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
-                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                        ? 'border-blue-500/50 bg-blue-500/10 shadow-lg shadow-blue-500/20'
+                        : 'border-white/30 dark:border-gray-700/30 bg-white/20 dark:bg-gray-800/20 hover:bg-white/30 dark:hover:bg-gray-800/30 hover:border-white/40 dark:hover:border-gray-700/40'
                     }
                   `}
                 >
                   <div className="flex-shrink-0">
-                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-white to-gray-800 border-2 border-gray-400 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-gray-400 to-gray-600 border border-white/30 flex items-center justify-center shadow-lg">
                       <svg
-                        className="w-5 h-5 text-gray-600"
+                        className="w-5 h-5 text-white"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -253,22 +261,26 @@ export function SettingsModal({ isOpen, onClose, currentLocale }: SettingsModalP
                     <div className="font-medium text-gray-900 dark:text-white">
                       {t('theme.system')}
                     </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
                       {mounted && `${t('theme.systemDesc')}: ${resolvedTheme === 'dark' ? t('theme.dark') : t('theme.light')}`}
                     </div>
                   </div>
                   {selectedTheme === 'system' && (
-                    <svg
-                      className="w-5 h-5 text-blue-500"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
+                    <div className="flex-shrink-0">
+                      <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
+                        <svg
+                          className="w-4 h-4 text-white"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </div>
+                    </div>
                   )}
                 </button>
               </div>
@@ -279,22 +291,22 @@ export function SettingsModal({ isOpen, onClose, currentLocale }: SettingsModalP
               <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
                 {currentLocale === 'zh' ? t('common.language') : 'Language / 语言'}
               </h3>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {locales.map((locale) => (
                   <button
                     key={locale}
                     onClick={() => handleLanguageChange(locale)}
                     className={`
-                      w-full flex items-center gap-3 p-4 rounded-lg border-2 transition-all
+                      w-full flex items-center gap-3 p-4 rounded-xl border transition-all duration-200 backdrop-blur-sm
                       ${
                         selectedLocale === locale
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                          ? 'border-blue-500/50 bg-blue-500/10 shadow-lg shadow-blue-500/20'
+                          : 'border-white/30 dark:border-gray-700/30 bg-white/20 dark:bg-gray-800/20 hover:bg-white/30 dark:hover:bg-gray-800/30 hover:border-white/40 dark:hover:border-gray-700/40'
                       }
                     `}
                   >
                     <div className="flex-shrink-0">
-                      <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 flex items-center justify-center text-2xl">
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 border border-white/30 flex items-center justify-center text-xl shadow-lg">
                         {localeFlags[locale]}
                       </div>
                     </div>
@@ -302,39 +314,31 @@ export function SettingsModal({ isOpen, onClose, currentLocale }: SettingsModalP
                       <div className="font-medium text-gray-900 dark:text-white">
                         {localeNames[locale]}
                       </div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
                         {locale === 'zh' ? t('common.simplifiedChinese') : 'English'}
                       </div>
                     </div>
                     {selectedLocale === locale && (
-                      <svg
-                        className="w-5 h-5 text-blue-500"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
+                      <div className="flex-shrink-0">
+                        <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
+                          <svg
+                            className="w-4 h-4 text-white"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                        </div>
+                      </div>
                     )}
                   </button>
                 ))}
               </div>
             </div>
-
-
-          </div>
-
-          {/* Footer */}
-          <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
-            <button
-              onClick={handleClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-            >
-              {t('common.close')}
-            </button>
           </div>
         </div>
       </div>
