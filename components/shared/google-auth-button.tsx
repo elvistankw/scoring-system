@@ -8,6 +8,9 @@ import { toast } from 'sonner';
 import { API_ENDPOINTS, getAuthHeaders } from '@/lib/api-config';
 import { useTranslation } from '@/i18n/use-dictionary';
 
+// Temporary flag to disable Google OAuth in production
+const GOOGLE_AUTH_ENABLED = process.env.NODE_ENV === 'development';
+
 interface GoogleAuthButtonProps {
   onAuthSuccess?: () => void;
   className?: string;
@@ -20,6 +23,11 @@ export function GoogleAuthButton({
   variant = 'default'
 }: GoogleAuthButtonProps) {
   const { t } = useTranslation();
+
+  // If Google Auth is disabled, don't render anything
+  if (!GOOGLE_AUTH_ENABLED) {
+    return null;
+  }
 
   const [isLoading, setIsLoading] = useState(false);
   const [isAuthorized, setIsAuthorized] = useState(false);

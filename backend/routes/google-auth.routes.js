@@ -4,8 +4,22 @@ const googleService = require('../services/google-service');
 const { authenticate } = require('../middleware/auth');
 const db = require('../db');
 
+// Temporary flag to disable Google OAuth in production
+const GOOGLE_AUTH_ENABLED = process.env.NODE_ENV === 'development';
+
+// Middleware to check if Google Auth is enabled
+const checkGoogleAuthEnabled = (req, res, next) => {
+  if (!GOOGLE_AUTH_ENABLED) {
+    return res.status(503).json({
+      status: 'error',
+      message: 'Google OAuth is temporarily disabled'
+    });
+  }
+  next();
+};
+
 // 获取Google授权URL
-router.get('/auth-url', authenticate, async (req, res, next) => {
+router.get('/auth-url', checkGoogleAuthEnabled, authenticate, async (req, res, next) => {
   try {
     const authUrl = googleService.getAuthUrl(req.user.id);
     res.json({
@@ -18,7 +32,7 @@ router.get('/auth-url', authenticate, async (req, res, next) => {
 });
 
 // 处理Google OAuth回调
-router.get('/callback', async (req, res, next) => {
+router.get('/callback', checkGoogleAuthEnabled, async (req, res, next) => {
   try {
     const { code, state: userId } = req.query;
     
@@ -52,7 +66,7 @@ router.get('/callback', async (req, res, next) => {
 });
 
 // 检查Google授权状态
-router.get('/status', authenticate, async (req, res, next) => {
+router.get('/status', checkGoogleAuthEnabled, authenticate, async (req, res, next) => {
   try {
     const result = await db.query(
       'SELECT google_email, expires_at FROM user_google_tokens WHERE user_id = $1',

@@ -69,15 +69,39 @@ app.use('/api/athletes', athletesRoutes);
 app.use('/api/scores', scoresRoutes);
 app.use('/api/cache', cacheRoutes);
 
-// Google OAuth routes
-const googleAuthRoutes = require('./routes/google-auth.routes');
-app.use('/api/auth/google', googleAuthRoutes);
+// Google OAuth routes - only load if enabled
+const GOOGLE_AUTH_ENABLED = process.env.NODE_ENV === 'development' || 
+  (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.GOOGLE_REDIRECT_URI);
 
-// Google Sheets & Drive routes
-const googleSheetsRoutes = require('./routes/google-sheets.routes');
-const googleDriveRoutes = require('./routes/google-drive.routes');
-app.use('/api/google/sheets', googleSheetsRoutes);
-app.use('/api/google/drive', googleDriveRoutes);
+if (GOOGLE_AUTH_ENABLED) {
+  const googleAuthRoutes = require('./routes/google-auth.routes');
+  app.use('/api/auth/google', googleAuthRoutes);
+
+  // Google Sheets & Drive routes
+  const googleSheetsRoutes = require('./routes/google-sheets.routes');
+  const googleDriveRoutes = require('./routes/google-drive.routes');
+  app.use('/api/google/sheets', googleSheetsRoutes);
+  app.use('/api/google/drive', googleDriveRoutes);
+  
+  console.log('✅ Google OAuth routes enabled');
+} else {
+  console.log('⚠️ Google OAuth routes disabled - missing environment variables');
+  
+  // Add fallback routes that return 503
+  app.use('/api/auth/google/*', (req, res) => {
+    res.status(503).json({
+      status: 'error',
+      message: 'Google OAuth is temporarily disabled'
+    });
+  });
+  
+  app.use('/api/google/*', (req, res) => {
+    res.status(503).json({
+      status: 'error',
+      message: 'Google services are temporarily disabled'
+    });
+  });
+}
 
 // Health check endpoint (no rate limit)
 app.get('/health', (req, res) => {

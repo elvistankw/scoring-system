@@ -3,18 +3,41 @@ const { OAuth2Client } = require('google-auth-library');
 
 class GoogleService {
   constructor() {
-    this.oauth2Client = new OAuth2Client(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
-      process.env.GOOGLE_REDIRECT_URI
-    );
+    // Only initialize OAuth client in development or when all required env vars are present
+    const hasRequiredEnvVars = process.env.GOOGLE_CLIENT_ID && 
+                               process.env.GOOGLE_CLIENT_SECRET && 
+                               process.env.GOOGLE_REDIRECT_URI;
     
-    this.drive = google.drive({ version: 'v3' });
-    this.sheets = google.sheets({ version: 'v4' });
+    if (process.env.NODE_ENV === 'development' || hasRequiredEnvVars) {
+      this.oauth2Client = new OAuth2Client(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        process.env.GOOGLE_REDIRECT_URI
+      );
+      
+      this.drive = google.drive({ version: 'v3' });
+      this.sheets = google.sheets({ version: 'v4' });
+      this.isEnabled = true;
+    } else {
+      this.oauth2Client = null;
+      this.drive = null;
+      this.sheets = null;
+      this.isEnabled = false;
+      console.log('Google OAuth disabled: Missing required environment variables');
+    }
+  }
+
+  // Check if service is enabled
+  _checkEnabled() {
+    if (!this.isEnabled) {
+      throw new Error('Google OAuth service is disabled');
+    }
   }
 
   // 获取OAuth授权URL
   getAuthUrl(userId) {
+    this._checkEnabled();
+    
     const scopes = [
       'https://www.googleapis.com/auth/drive.file',
       'https://www.googleapis.com/auth/spreadsheets',
@@ -31,12 +54,14 @@ class GoogleService {
 
   // 处理OAuth回调
   async handleCallback(code) {
+    this._checkEnabled();
     const { tokens } = await this.oauth2Client.getAccessToken(code);
     return tokens;
   }
 
   // 上传文件到Google Drive
   async uploadToDrive(fileBuffer, fileName, mimeType, userTokens, targetEmail) {
+    this._checkEnabled();
     this.oauth2Client.setCredentials(userTokens);
     
     const drive = google.drive({ 
@@ -77,6 +102,7 @@ class GoogleService {
 
   // 创建Google Sheets
   async createSheet(title, data, userTokens) {
+    this._checkEnabled();
     this.oauth2Client.setCredentials(userTokens);
     
     const sheets = google.sheets({ 
@@ -113,6 +139,7 @@ class GoogleService {
 
   // 获取用户信息
   async getUserInfo(userTokens) {
+    this._checkEnabled();
     this.oauth2Client.setCredentials(userTokens);
     
     const oauth2 = google.oauth2({ 
