@@ -5,7 +5,10 @@ const { authenticate } = require('../middleware/auth');
 const db = require('../db');
 
 // Temporary flag to disable Google OAuth in production
-const GOOGLE_AUTH_ENABLED = process.env.NODE_ENV === 'development';
+const GOOGLE_AUTH_ENABLED = process.env.NODE_ENV === 'development' || 
+  (process.env.GOOGLE_CLIENT_ID && 
+   process.env.GOOGLE_CLIENT_SECRET && 
+   process.env.GOOGLE_REDIRECT_URI);
 
 // Middleware to check if Google Auth is enabled
 const checkGoogleAuthEnabled = (req, res, next) => {

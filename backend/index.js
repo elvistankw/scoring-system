@@ -87,15 +87,15 @@ if (GOOGLE_AUTH_ENABLED) {
 } else {
   console.log('⚠️ Google OAuth routes disabled - missing environment variables');
   
-  // Add fallback routes that return 503
-  app.use('/api/auth/google/*', (req, res) => {
+  // Add fallback routes that return 503 - using correct Express syntax
+  app.all('/api/auth/google*', (req, res) => {
     res.status(503).json({
       status: 'error',
       message: 'Google OAuth is temporarily disabled'
     });
   });
   
-  app.use('/api/google/*', (req, res) => {
+  app.all('/api/google*', (req, res) => {
     res.status(503).json({
       status: 'error',
       message: 'Google services are temporarily disabled'
