@@ -26,7 +26,7 @@ export function AthleteForm({ athlete, onSuccess, onCancel }: AthleteFormProps) 
     contact_email: '',
     contact_phone: '',
     age: 0,
-    gender: '' as any,
+    gender: 'male',
     school: '',
   });
 

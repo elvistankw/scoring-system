@@ -11,7 +11,7 @@ export interface Athlete {
   contact_email?: string | null;
   contact_phone?: string | null;
   age: number;
-  gender: 'male' | 'female' | 'other';
+  gender: 'male' | 'female';
   school: string;
   created_at: string;
   updated_at: string;
@@ -24,7 +24,7 @@ export interface CreateAthleteRequest {
   contact_email?: string;
   contact_phone?: string;
   age: number;
-  gender: 'male' | 'female' | 'other';
+  gender: 'male' | 'female';
   school: string;
 }
 
@@ -35,7 +35,7 @@ export interface UpdateAthleteRequest {
   contact_email?: string;
   contact_phone?: string;
   age?: number;
-  gender?: 'male' | 'female' | 'other';
+  gender?: 'male' | 'female';
   school?: string;
 }
 
