@@ -11,6 +11,9 @@ import { useUser } from '@/hooks/use-user';
 import { useTranslation } from '@/i18n/use-dictionary';
 import { DynamicAthleteCard, DynamicScoreInputForm } from '@/lib/dynamic-imports';
 import { measurePageLoad } from '@/lib/performance-monitor';
+import { BackButton } from '@/components/shared/back-button';
+import { Particles } from '@/components/shared/animated-background';
+import { GlassCard } from '@/components/shared/animated-card';
 import type { Athlete } from '@/interface/athlete';
 import type { Competition } from '@/interface/competition';
 
@@ -158,32 +161,30 @@ export default function ScoringPageClient() {
   // Loading state
   if (!selectedCompetition) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8">
-        <div className="max-w-6xl mx-auto">
-          <div className="animate-pulse space-y-4">
-            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
-            <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded"></div>
+      <Particles>
+        <div className="min-h-screen p-4 md:p-8">
+          <div className="max-w-6xl mx-auto">
+            <div className="animate-pulse space-y-4">
+              <div className="h-8 bg-white/20 dark:bg-gray-700/20 backdrop-blur-sm rounded w-1/4"></div>
+              <div className="h-32 bg-white/20 dark:bg-gray-700/20 backdrop-blur-sm rounded"></div>
+            </div>
           </div>
         </div>
-      </div>
+      </Particles>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <Particles>
+      <div className="min-h-screen p-4 md:p-8">
+        <div className="max-w-6xl mx-auto space-y-6">
         {/* Header with Back Button */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <button
+            <BackButton 
               onClick={handleBackToDashboard}
-              className="flex items-center gap-2 px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              {t('common.back')}
-            </button>
+              label={t('common.back')}
+            />
             <div>
               <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
                 {t('judge.scoring')}
@@ -215,9 +216,9 @@ export default function ScoringPageClient() {
         {/* Athlete Selection and Scoring Form */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Athlete List */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6">
+          <GlassCard hoverEffect="none">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                 {t('judge.selectAthlete')}
               </h2>
               <span className="text-sm text-gray-500 dark:text-gray-400">
@@ -227,7 +228,7 @@ export default function ScoringPageClient() {
 
             {/* Sort Controls */}
             {athletes.length > 0 && (
-              <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+              <div className="mb-4 p-3 backdrop-blur-md bg-white/40 dark:bg-gray-700/40 rounded-lg border border-white/20 dark:border-gray-600/20">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     {t('judge.sortBy')}:
@@ -237,7 +238,7 @@ export default function ScoringPageClient() {
                     className={`px-3 py-1.5 text-sm rounded-md transition-all ${
                       sortField === 'number'
                         ? 'bg-blue-600 text-white shadow-sm'
-                        : 'bg-white dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-500'
+                        : 'backdrop-blur-sm bg-white/60 dark:bg-gray-600/60 text-gray-700 dark:text-gray-200 hover:bg-white/80 dark:hover:bg-gray-500/80'
                     }`}
                   >
                     {t('judge.sortByNumber')}
@@ -252,7 +253,7 @@ export default function ScoringPageClient() {
                     className={`px-3 py-1.5 text-sm rounded-md transition-all ${
                       sortField === 'name'
                         ? 'bg-blue-600 text-white shadow-sm'
-                        : 'bg-white dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-500'
+                        : 'backdrop-blur-sm bg-white/60 dark:bg-gray-600/60 text-gray-700 dark:text-gray-200 hover:bg-white/80 dark:hover:bg-gray-500/80'
                     }`}
                   >
                     {t('judge.sortByName')}
@@ -269,7 +270,7 @@ export default function ScoringPageClient() {
                       className={`px-3 py-1.5 text-sm rounded-md transition-all ${
                         sortField === 'team'
                           ? 'bg-blue-600 text-white shadow-sm'
-                          : 'bg-white dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-500'
+                          : 'backdrop-blur-sm bg-white/60 dark:bg-gray-600/60 text-gray-700 dark:text-gray-200 hover:bg-white/80 dark:hover:bg-gray-500/80'
                       }`}
                     >
                       {t('judge.sortByTeam')}
@@ -287,7 +288,7 @@ export default function ScoringPageClient() {
             {athletesLoading ? (
               <div className="space-y-3">
                 {[1, 2, 3, 4, 5].map((i) => (
-                  <div key={i} className="h-20 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+                  <div key={i} className="h-20 bg-white/20 dark:bg-gray-700/20 backdrop-blur-sm rounded-lg animate-pulse"></div>
                 ))}
               </div>
             ) : athletes.length === 0 ? (
@@ -310,66 +311,69 @@ export default function ScoringPageClient() {
                 ))}
               </div>
             )}
-          </div>
+          </GlassCard>
 
           {/* Score Input Form */}
-          <div ref={scoringSectionRef} className="bg-white dark:bg-gray-800 rounded-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
-              {t('judge.scoring')}
-            </h2>
-            
-            {/* Check if competition is active before allowing scoring */}
-            {selectedCompetition.status !== 'active' ? (
-              <div className="text-center py-12">
-                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-6">
-                  <svg className="w-16 h-16 mx-auto mb-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                  </svg>
-                  <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200 mb-2">
-                    {t('judge.competitionNotActive')}
-                  </h3>
-                  <p className="text-yellow-700 dark:text-yellow-300 mb-4">
-                    {selectedCompetition.status === 'upcoming' 
-                      ? t('judge.competitionUpcoming') 
-                      : t('judge.competitionCompleted')
-                    }
-                  </p>
-                  <p className="text-sm text-yellow-600 dark:text-yellow-400">
-                    {t('judge.onlyActiveCompetitionsCanBeScored')}
-                  </p>
+          <GlassCard hoverEffect="none">
+            <div ref={scoringSectionRef}>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                {t('judge.scoring')}
+              </h2>
+              
+              {/* Check if competition is active before allowing scoring */}
+              {selectedCompetition.status !== 'active' ? (
+                <div className="text-center py-12">
+                  <div className="backdrop-blur-md bg-yellow-50/80 dark:bg-yellow-900/30 border border-yellow-200/50 dark:border-yellow-800/50 rounded-lg p-6">
+                    <svg className="w-16 h-16 mx-auto mb-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                    <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200 mb-2">
+                      {t('judge.competitionNotActive')}
+                    </h3>
+                    <p className="text-yellow-700 dark:text-yellow-300 mb-4">
+                      {selectedCompetition.status === 'upcoming' 
+                        ? t('judge.competitionUpcoming') 
+                        : t('judge.competitionCompleted')
+                      }
+                    </p>
+                    <p className="text-sm text-yellow-600 dark:text-yellow-400">
+                      {t('judge.onlyActiveCompetitionsCanBeScored')}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ) : selectedAthlete ? (
-              <div>
-                {/* Selected Athlete Info */}
-                <DynamicScoreInputForm
-                  competition={selectedCompetition}
-                  athlete={selectedAthlete}
-                  onSubmitSuccess={handleSubmitSuccess}
-                />
-              </div>
-            ) : (
-              <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-                <svg
-                  className="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+              ) : selectedAthlete ? (
+                <div>
+                  {/* Selected Athlete Info */}
+                  <DynamicScoreInputForm
+                    competition={selectedCompetition}
+                    athlete={selectedAthlete}
+                    onSubmitSuccess={handleSubmitSuccess}
                   />
-                </svg>
-                <p className="text-lg font-medium mb-2">{t('judge.selectAthlete')}</p>
-                <p className="text-sm">{t('judge.selectAthlete')}</p>
-              </div>
-            )}
-          </div>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                  <svg
+                    className="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                    />
+                  </svg>
+                  <p className="text-lg font-medium mb-2">{t('judge.selectAthlete')}</p>
+                  <p className="text-sm">{t('judge.selectAthlete')}</p>
+                </div>
+              )}
+            </div>
+          </GlassCard>
+        </div>
         </div>
       </div>
-    </div>
+    </Particles>
   );
 }

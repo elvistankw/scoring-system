@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import type { Athlete } from '@/interface/athlete';
 import { useAthletes, addAthleteToCompetition, removeAthleteFromCompetition } from '@/hooks/use-athletes';
@@ -26,6 +26,11 @@ export function CompetitionAthleteList({ competitionId, onClose }: CompetitionAt
   const [removingId, setRemovingId] = useState<number | null>(null);
   const [showAthleteForm, setShowAthleteForm] = useState(false);
   const [editingAthlete, setEditingAthlete] = useState<Athlete | null>(null);
+  
+  // Filter states
+  const [filterGender, setFilterGender] = useState<string>('all');
+  const [filterAge, setFilterAge] = useState<string>('all');
+  const [filterSchool, setFilterSchool] = useState<string>('all');
   
   const { athletes: allAthletes, refresh: refreshAthletes } = useAthletes();
 
@@ -132,6 +137,204 @@ export function CompetitionAthleteList({ competitionId, onClose }: CompetitionAt
     (athlete: Athlete) => !competitionAthletes.some((ca: Athlete) => ca.id === athlete.id)
   );
 
+  // Apply filters to competition athletes
+  const filteredCompetitionAthletes = useMemo(() => {
+    return competitionAthletes.filter((athlete: Athlete) => {
+      // Gender filter
+      if (filterGender !== 'all' && athlete.gender !== filterGender) {
+        return false;
+      }
+      
+      // Age filter (12岁以上 or 12岁以下)
+      if (filterAge !== 'all') {
+        if (filterAge === 'above12' && athlete.age && athlete.age <= 12) {
+          return false;
+        }
+        if (filterAge === 'below12' && athlete.age && athlete.age > 12) {
+          return false;
+        }
+      }
+      
+      // School filter
+      if (filterSchool !== 'all' && athlete.school !== filterSchool) {
+        return false;
+      }
+      
+      return true;
+    });
+  }, [competitionAthletes, filterGender, filterAge, filterSchool]);
+
+  // Apply filters to available athletes (for the add athlete dropdown)
+  const filteredAvailableAthletes = useMemo(() => {
+    return availableAthletes.filter((athlete: Athlete) => {
+      // Gender filter
+      if (filterGender !== 'all' && athlete.gender !== filterGender) {
+        return false;
+      }
+      
+      // Age filter (12岁以上 or 12岁以下)
+      if (filterAge !== 'all') {
+        if (filterAge === 'above12' && athlete.age && athlete.age <= 12) {
+          return false;
+        }
+        if (filterAge === 'below12' && athlete.age && athlete.age > 12) {
+          return false;
+        }
+      }
+      
+      // School filter
+      if (filterSchool !== 'all' && athlete.school !== filterSchool) {
+        return false;
+      }
+      
+      return true;
+    });
+  }, [availableAthletes, filterGender, filterAge, filterSchool]);
+
+  // Extract unique schools from ALL athletes (both in competition and available)
+  const uniqueSchools = useMemo(() => {
+    const allAthletesInContext = [...competitionAthletes, ...availableAthletes];
+    const schools = allAthletesInContext
+      .map((athlete: Athlete) => athlete.school)
+      .filter((school): school is string => !!school && school.trim() !== '');
+    return Array.from(new Set(schools)).sort();
+  }, [competitionAthletes, availableAthletes]);
+
+  // Filter UI Component
+  const FilterSection = () => (
+    <div className="mb-4 bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
+      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+        {t('common.filterAthletes')}
+      </h4>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {/* Gender filter */}
+        <div>
+          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+            {t('athlete.gender')}
+          </label>
+          <select
+            value={filterGender}
+            onChange={(e) => setFilterGender(e.target.value)}
+            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+          >
+            <option value="all">{t('common.allGenders')}</option>
+            <option value="male">{t('athlete.male')}</option>
+            <option value="female">{t('athlete.female')}</option>
+          </select>
+        </div>
+
+        {/* Age filter */}
+        <div>
+          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+            {t('athlete.age')}
+          </label>
+          <select
+            value={filterAge}
+            onChange={(e) => setFilterAge(e.target.value)}
+            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+          >
+            <option value="all">{t('common.allAges')}</option>
+            <option value="above12">{t('athlete.above12')}</option>
+            <option value="below12">{t('athlete.below12')}</option>
+          </select>
+        </div>
+
+        {/* School filter */}
+        <div>
+          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+            {t('athlete.school')}
+          </label>
+          <select
+            value={filterSchool}
+            onChange={(e) => setFilterSchool(e.target.value)}
+            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+          >
+            <option value="all">{t('common.allSchools')}</option>
+            {uniqueSchools.map((school) => (
+              <option key={school} value={school}>
+                {school}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Clear filters button */}
+      {(filterGender !== 'all' || filterAge !== 'all' || filterSchool !== 'all') && (
+        <button
+          onClick={() => {
+            setFilterGender('all');
+            setFilterAge('all');
+            setFilterSchool('all');
+          }}
+          className="mt-3 px-3 py-1.5 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
+        >
+          {t('common.clearFilters')}
+        </button>
+      )}
+    </div>
+  );
+
+  // Athlete List Component
+  const AthleteListDisplay = () => (
+    <>
+      {isLoading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="animate-pulse bg-gray-200 dark:bg-gray-700 h-16 rounded-lg" />
+          ))}
+        </div>
+      ) : filteredCompetitionAthletes.length === 0 ? (
+        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+          {competitionAthletes.length === 0 
+            ? t('common.noParticipants')
+            : t('athlete.noMatchingAthletes')}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {filteredCompetitionAthletes.map((athlete: Athlete) => (
+            <div
+              key={athlete.id}
+              className="flex items-center justify-between bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4"
+            >
+              <div className="flex items-center gap-3">
+                <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-sm font-medium rounded-full">
+                  {athlete.athlete_number}
+                </span>
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    {athlete.name}
+                  </p>
+                  <div className="flex gap-2 text-sm text-gray-500 dark:text-gray-400">
+                    {athlete.team_name && <span>{athlete.team_name}</span>}
+                    {athlete.school && <span>• {athlete.school}</span>}
+                    {athlete.age && <span>• {athlete.age}{t('athlete.yearsOld')}</span>}
+                    {athlete.gender && <span>• {t(`athlete.${athlete.gender}`)}</span>}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleEditAthlete(athlete)}
+                  className="px-3 py-1.5 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
+                >
+                  {t('common.edit')}
+                </button>
+                <button
+                  onClick={() => handleRemoveAthlete(athlete.id)}
+                  disabled={removingId === athlete.id}
+                  className="px-4 py-2 text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium disabled:opacity-50"
+                >
+                  {removingId === athlete.id ? t('common.removing') : t('common.remove')}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+
   return (
     <>
       {onClose ? (
@@ -187,7 +390,7 @@ export function CompetitionAthleteList({ competitionId, onClose }: CompetitionAt
                 disabled={isAdding}
               >
                 <option value="">{t('common.selectAthlete')}</option>
-                {availableAthletes.map((athlete: Athlete) => (
+                {filteredAvailableAthletes.map((athlete: Athlete) => (
                   <option key={athlete.id} value={athlete.id}>
                     {athlete.name} ({athlete.athlete_number})
                   </option>
@@ -201,70 +404,24 @@ export function CompetitionAthleteList({ competitionId, onClose }: CompetitionAt
                 {isAdding ? t('common.adding') : t('common.add')}
               </button>
             </div>
-            {availableAthletes.length === 0 && (
+            {filteredAvailableAthletes.length === 0 && (
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                {t('common.allAthletesAdded')}
+                {availableAthletes.length === 0 
+                  ? t('common.allAthletesAdded')
+                  : t('common.noMatchingAthletesToAdd')}
               </p>
             )}
           </div>
 
           {/* Current athletes list */}
           <div>
+            <FilterSection />
+            
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-              {t('common.currentParticipants')} ({competitionAthletes.length})
+              {t('common.currentParticipants')} ({filteredCompetitionAthletes.length}/{competitionAthletes.length})
             </h3>
             
-            {isLoading ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="animate-pulse bg-gray-200 dark:bg-gray-700 h-16 rounded-lg" />
-                ))}
-              </div>
-            ) : competitionAthletes.length === 0 ? (
-              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                {t('common.noParticipants')}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {competitionAthletes.map((athlete: Athlete) => (
-                  <div
-                    key={athlete.id}
-                    className="flex items-center justify-between bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-sm font-medium rounded-full">
-                        {athlete.athlete_number}
-                      </span>
-                      <div>
-                        <p className="font-medium text-gray-900 dark:text-white">
-                          {athlete.name}
-                        </p>
-                        {athlete.team_name && (
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {athlete.team_name}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleEditAthlete(athlete)}
-                        className="px-3 py-1.5 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
-                      >
-                        {t('common.edit')}
-                      </button>
-                      <button
-                        onClick={() => handleRemoveAthlete(athlete.id)}
-                        disabled={removingId === athlete.id}
-                        className="px-4 py-2 text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium disabled:opacity-50"
-                      >
-                        {removingId === athlete.id ? t('common.removing') : t('common.remove')}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <AthleteListDisplay />
           </div>
         </div>
 
@@ -306,7 +463,7 @@ export function CompetitionAthleteList({ competitionId, onClose }: CompetitionAt
                 disabled={isAdding}
               >
                 <option value="">{t('common.selectAthlete')}</option>
-                {availableAthletes.map((athlete: Athlete) => (
+                {filteredAvailableAthletes.map((athlete: Athlete) => (
                   <option key={athlete.id} value={athlete.id}>
                     {athlete.name} ({athlete.athlete_number})
                   </option>
@@ -320,70 +477,24 @@ export function CompetitionAthleteList({ competitionId, onClose }: CompetitionAt
                 {isAdding ? t('common.adding') : t('common.add')}
               </button>
             </div>
-            {availableAthletes.length === 0 && (
+            {filteredAvailableAthletes.length === 0 && (
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                {t('common.allAthletesAdded')}
+                {availableAthletes.length === 0 
+                  ? t('common.allAthletesAdded')
+                  : t('common.noMatchingAthletesToAdd')}
               </p>
             )}
           </div>
 
           {/* Current athletes list */}
           <div>
+            <FilterSection />
+            
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-              {t('common.currentParticipants')} ({competitionAthletes.length})
+              {t('common.currentParticipants')} ({filteredCompetitionAthletes.length}/{competitionAthletes.length})
             </h3>
             
-            {isLoading ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="animate-pulse bg-gray-200 dark:bg-gray-700 h-16 rounded-lg" />
-                ))}
-              </div>
-            ) : competitionAthletes.length === 0 ? (
-              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                {t('common.noParticipants')}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {competitionAthletes.map((athlete: Athlete) => (
-                  <div
-                    key={athlete.id}
-                    className="flex items-center justify-between bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-sm font-medium rounded-full">
-                        {athlete.athlete_number}
-                      </span>
-                      <div>
-                        <p className="font-medium text-gray-900 dark:text-white">
-                          {athlete.name}
-                        </p>
-                        {athlete.team_name && (
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {athlete.team_name}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleEditAthlete(athlete)}
-                        className="px-3 py-1.5 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
-                      >
-                        {t('common.edit')}
-                      </button>
-                      <button
-                        onClick={() => handleRemoveAthlete(athlete.id)}
-                        disabled={removingId === athlete.id}
-                        className="px-4 py-2 text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium disabled:opacity-50"
-                      >
-                        {removingId === athlete.id ? t('common.removing') : t('common.remove')}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <AthleteListDisplay />
           </div>
         </div>
       )}

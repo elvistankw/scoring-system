@@ -10,6 +10,9 @@ import { measurePageLoad } from '@/lib/performance-monitor';
 import { API_ENDPOINTS, getAuthHeaders } from '@/lib/api-config';
 import { GoogleAuthButton } from '@/components/shared/google-auth-button';
 import { SettingsModal } from '@/components/shared/settings-modal';
+import { Particles } from '@/components/shared/animated-background';
+import { GlassCard } from '@/components/shared/animated-card';
+import { BackButton } from '@/components/shared/back-button';
 import type { Competition } from '@/interface/competition';
 import type { Athlete } from '@/interface/athlete';
 import type { ScoreWithDetails } from '@/interface/score';
@@ -282,12 +285,14 @@ export function ScoreSummaryClient() {
   // Show loading state while checking authentication
   if (userLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">{t('common.loading')}</p>
+      <Particles>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600 dark:text-gray-400">{t('common.loading')}</p>
+          </div>
         </div>
-      </div>
+      </Particles>
     );
   }
 
@@ -297,22 +302,17 @@ export function ScoreSummaryClient() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <Particles>
+      <div className="min-h-screen p-4 md:p-8">
+        <div className="max-w-6xl mx-auto space-y-6">
         {/* Header with Back Button and User Menu */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             {/* Back Button */}
-            <button
-              onClick={() => router.push(`/${locale}/judge-dashboard`)}
-              className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              title={t('common.back')}
-            >
-              <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-              <span className="text-gray-700 dark:text-gray-300">{t('common.back')}</span>
-            </button>
+            <BackButton 
+              href={`/${locale}/judge-dashboard`}
+              label={t('common.back')}
+            />
 
             <div>
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
@@ -328,9 +328,9 @@ export function ScoreSummaryClient() {
           <div className="relative user-menu">
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex items-center gap-3 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              className="flex items-center gap-3 px-4 py-2 rounded-xl backdrop-blur-lg bg-white/30 dark:bg-gray-800/10 border border-white/40 dark:border-gray-700/20 shadow-lg hover:bg-white/40 dark:hover:bg-gray-800/20 transition-all duration-300"
             >
-              <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
+              <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center shadow-md">
                 <span className="text-white text-sm font-medium">
                   {user?.username?.charAt(0)?.toUpperCase() || 'J'}
                 </span>
@@ -344,7 +344,7 @@ export function ScoreSummaryClient() {
                 </p>
               </div>
               <svg 
-                className={`w-4 h-4 text-gray-400 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} 
+                className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${showUserMenu ? 'rotate-180' : ''}`} 
                 fill="none" 
                 stroke="currentColor" 
                 viewBox="0 0 24 24"
@@ -354,62 +354,76 @@ export function ScoreSummaryClient() {
             </button>
             
             {/* Dropdown Menu */}
-            {showUserMenu && (
-              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50">
-                <div className="py-1">
-                  <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      {user?.username || t('judge.judge')}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {user?.email}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => router.push(`/${locale}/judge-dashboard`)}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
-                      </svg>
-                      {t('judge.judgeDashboard')}
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowUserMenu(false);
-                      setShowSettings(true);
-                    }}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                      {t('common.settings')}
-                    </div>
-                  </button>
-                  <button
-                    onClick={handleLogout}
-                    className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                      </svg>
-                      {t('common.logout')}
-                    </div>
-                  </button>
+            <div
+              className={`absolute right-0 mt-2 w-56 rounded-xl overflow-hidden backdrop-blur-lg bg-white/30 dark:bg-gray-800/10 border border-white/40 dark:border-gray-700/20 shadow-2xl transition-all duration-300 z-50 ${
+                showUserMenu
+                  ? 'opacity-100 scale-100 pointer-events-auto'
+                  : 'opacity-0 scale-95 pointer-events-none'
+              }`}
+            >
+              <div className="py-1">
+                {/* User Info Header */}
+                <div className="px-4 py-3 border-b border-white/10 dark:border-gray-700/20">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    {user?.username || t('judge.judge')}
+                  </p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                    {user?.email}
+                  </p>
                 </div>
+                
+                {/* Judge Dashboard Link */}
+                <button
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    router.push(`/${locale}/judge-dashboard`);
+                  }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-gray-900 dark:text-white hover:bg-white/20 dark:hover:bg-gray-700/20 transition-all duration-200"
+                >
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
+                    </svg>
+                    {t('judge.judgeDashboard')}
+                  </div>
+                </button>
+                
+                {/* Settings Button */}
+                <button
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    setShowSettings(true);
+                  }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-gray-900 dark:text-white hover:bg-white/20 dark:hover:bg-gray-700/20 transition-all duration-200"
+                >
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    {t('common.settings')}
+                  </div>
+                </button>
+                
+                {/* Logout Button */}
+                <button
+                  onClick={handleLogout}
+                  className="w-full text-left px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-500/10 dark:hover:bg-red-500/20 transition-all duration-200 border-t border-white/10 dark:border-gray-700/20"
+                >
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    {t('common.logout')}
+                  </div>
+                </button>
               </div>
-            )}
+            </div>
           </div>
         </div>
 
         {/* Competition Selection */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-6">
+        <GlassCard hoverEffect="none">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
               {t('judge.selectCompetitionFirst')}
@@ -454,20 +468,20 @@ export function ScoreSummaryClient() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {competitions.map((competition) => (
-                <button
+                <GlassCard
                   key={competition.id}
+                  hoverEffect="scale"
                   onClick={() => handleCompetitionSelect(competition)}
                   className={`
-                    p-4 rounded-lg border-2 transition-all duration-200
-                    hover:shadow-md active:scale-[0.98]
+                    cursor-pointer text-left transition-all duration-200
                     ${
                       selectedCompetition?.id === competition.id
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-950 dark:border-blue-400'
-                        : 'border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-700 hover:border-gray-300'
+                        ? 'ring-2 ring-blue-500 bg-blue-500/10'
+                        : ''
                     }
                   `}
                 >
-                  <div className="text-left">
+                  <div>
                     <h3 className="font-semibold text-gray-900 dark:text-white">
                       {competition.name}
                     </h3>
@@ -488,22 +502,31 @@ export function ScoreSummaryClient() {
                         {competition.competition_type === 'team' && t('competition.team')}
                         {competition.competition_type === 'challenge' && t('competition.challenge')}
                       </span>
+                      {competition.athlete_count !== undefined && (
+                        <span className="px-2 py-1 bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 rounded text-xs font-medium flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                          </svg>
+                          {competition.athlete_count}
+                        </span>
+                      )}
                     </div>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                       {competition.region}
                     </p>
                   </div>
-                </button>
+                </GlassCard>
               ))}
             </div>
           )}
-        </div>
+        </GlassCard>
 
         {/* Athletes and Scores */}
         {selectedCompetition && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Athletes List */}
-            <div ref={athletesSectionRef} className="bg-white dark:bg-gray-800 rounded-lg p-6">
+            <GlassCard hoverEffect="none">
+              <div ref={athletesSectionRef}>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                   {t('judge.selectAthlete')}
@@ -530,12 +553,12 @@ export function ScoreSummaryClient() {
                       key={athlete.id}
                       onClick={() => handleAthleteSelect(athlete)}
                       className={`
-                        w-full p-4 rounded-lg border-2 transition-all duration-200
+                        w-full p-4 rounded-lg border-2 transition-all duration-300
                         hover:shadow-md active:scale-[0.98]
                         ${
                           selectedAthlete?.id === athlete.id
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-950 dark:border-blue-400'
-                            : 'border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-700 hover:border-gray-300'
+                            ? 'border-blue-500 backdrop-blur-xl bg-blue-500/20 dark:bg-blue-500/30 dark:border-blue-400 shadow-lg shadow-blue-500/20'
+                            : 'border-gray-200 backdrop-blur-md bg-white/60 dark:bg-gray-800/60 dark:border-gray-700 hover:border-gray-300 hover:backdrop-blur-lg'
                         }
                       `}
                     >
@@ -576,10 +599,12 @@ export function ScoreSummaryClient() {
                   ))}
                 </div>
               )}
-            </div>
+              </div>
+            </GlassCard>
 
             {/* Scores Display */}
-            <div ref={scoresSectionRef} className="bg-white dark:bg-gray-800 rounded-lg p-6">
+            <GlassCard hoverEffect="none">
+              <div ref={scoresSectionRef}>
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
                 {t('score.scoreDetails')}
               </h2>
@@ -609,14 +634,14 @@ export function ScoreSummaryClient() {
               ) : (
                 <div className="space-y-4 max-h-[600px] overflow-y-auto">
                   {/* Selected Athlete Info */}
-                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <GlassCard hoverEffect="none" className="bg-blue-500/10">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
                         <span className="text-white font-medium">
                           {selectedAthlete.athlete_number}
                         </span>
                       </div>
-                      <div>
+                      <div className="flex-1">
                         <h3 className="font-semibold text-gray-900 dark:text-white">
                           {selectedAthlete.name}
                         </h3>
@@ -625,13 +650,39 @@ export function ScoreSummaryClient() {
                             {selectedAthlete.team_name}
                           </p>
                         )}
+                        <div className="flex flex-wrap gap-2 mt-1 text-xs text-gray-500 dark:text-gray-400">
+                          {selectedAthlete.age && (
+                            <span className="flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                              {selectedAthlete.age}岁
+                            </span>
+                          )}
+                          {selectedAthlete.gender && (
+                            <span className="flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                              </svg>
+                              {t(`athlete.${selectedAthlete.gender}`)}
+                            </span>
+                          )}
+                          {selectedAthlete.school && (
+                            <span className="flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                              </svg>
+                              {selectedAthlete.school}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  </GlassCard>
 
                   {/* Scores List */}
                   {scores.map((score, index) => (
-                    <div key={score.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <GlassCard key={score.id} hoverEffect="none">
                       <div className="flex items-center justify-between mb-3">
                         <div>
                           <p className="font-medium text-gray-900 dark:text-white">
@@ -694,11 +745,12 @@ export function ScoreSummaryClient() {
                           </div>
                         )}
                       </div>
-                    </div>
+                    </GlassCard>
                   ))}
                 </div>
               )}
-            </div>
+              </div>
+            </GlassCard>
           </div>
         )}
 
@@ -799,10 +851,10 @@ export function ScoreSummaryClient() {
             </div>
           </div>
         )}
+        </div>
       </div>
-    </div>
+    </Particles>
   );
 }
-
 
 export default ScoreSummaryClient;

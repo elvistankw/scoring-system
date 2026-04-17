@@ -67,6 +67,40 @@ export const API_ENDPOINTS = {
     latestScores: (competitionId: number) => 
       `${API_BASE_URL}/api/scores/latest/${competitionId}`,
   },
+
+  // Google integration endpoints
+  google: {
+    // Google Auth
+    authUrl: `${API_BASE_URL}/api/auth/google/auth-url`,
+    authStatus: `${API_BASE_URL}/api/auth/google/status`,
+    authCallback: `${API_BASE_URL}/api/auth/google/callback`,
+
+    // Google Sheets
+    exportToSheets: (competitionId: number) => 
+      `${API_BASE_URL}/api/google/sheets/export/${competitionId}`,
+    exportHistory: (params?: { competition_id?: number; export_type?: string }) => {
+      const query = params ? `?${buildQueryString(params as any)}` : '';
+      return `${API_BASE_URL}/api/google/sheets/history${query}`;
+    },
+    deleteExport: (exportId: number) => 
+      `${API_BASE_URL}/api/google/sheets/history/${exportId}`,
+
+    // Google Drive
+    uploadToDrive: `${API_BASE_URL}/api/google/drive/upload`,
+    createFolder: `${API_BASE_URL}/api/google/drive/folder`,
+    listFiles: (params?: { folder_id?: string; mime_type?: string; page_size?: number }) => {
+      const query = params ? `?${buildQueryString(params as any)}` : '';
+      return `${API_BASE_URL}/api/google/drive/files${query}`;
+    },
+    deleteFile: (fileId: string) => 
+      `${API_BASE_URL}/api/google/drive/files/${fileId}`,
+    shareFile: (fileId: string) => 
+      `${API_BASE_URL}/api/google/drive/files/${fileId}/share`,
+    fileMetadata: (fileId: string) => 
+      `${API_BASE_URL}/api/google/drive/files/${fileId}/metadata`,
+    downloadFile: (fileId: string) => 
+      `${API_BASE_URL}/api/google/drive/files/${fileId}/download`,
+  },
 } as const;
 
 // WebSocket event names

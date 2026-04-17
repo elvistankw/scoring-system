@@ -9,6 +9,7 @@ export interface Competition {
   name: string;
   competition_type: CompetitionType;
   region: string;
+  division?: string; // Optional for backward compatibility with old data, but required for new competitions
   status: CompetitionStatus;
   start_date: string;
   end_date: string;
@@ -22,6 +23,7 @@ export interface CreateCompetitionRequest {
   name: string;
   competition_type: CompetitionType;
   region: string;
+  division: string; // Required: competition division/group
   start_date: string;
   end_date: string;
 }
@@ -30,6 +32,7 @@ export interface UpdateCompetitionRequest {
   name?: string;
   competition_type?: CompetitionType;
   region?: string;
+  division?: string;
   status?: CompetitionStatus;
   start_date?: string;
   end_date?: string;

@@ -28,6 +28,9 @@ const cacheRoutes = require('./routes/cache.routes');
 // Import WebSocket setup
 const { initializeWebSocket, handleScoreUpdate } = require('./socket');
 
+// Import auto-complete utility
+const { scheduleAutoComplete } = require('./utils/auto-complete-competitions');
+
 const app = express();
 
 // Disable X-Powered-By header for security
@@ -70,6 +73,12 @@ app.use('/api/cache', cacheRoutes);
 const googleAuthRoutes = require('./routes/google-auth.routes');
 app.use('/api/auth/google', googleAuthRoutes);
 
+// Google Sheets & Drive routes
+const googleSheetsRoutes = require('./routes/google-sheets.routes');
+const googleDriveRoutes = require('./routes/google-drive.routes');
+app.use('/api/google/sheets', googleSheetsRoutes);
+app.use('/api/google/drive', googleDriveRoutes);
+
 // Health check endpoint (no rate limit)
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -90,6 +99,10 @@ httpServer.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
   console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔌 WebSocket server ready`);
+  
+  // Start auto-complete scheduler (check every 60 minutes)
+  scheduleAutoComplete(60);
+  console.log(`⏰ Auto-complete scheduler started`);
 });
 
 module.exports = { app, httpServer, io };

@@ -10,6 +10,8 @@ import { useTranslation } from '@/i18n/use-dictionary';
 import { DynamicCompetitionSelector } from '@/lib/dynamic-imports';
 import { SettingsModal } from '@/components/shared/settings-modal';
 import { measurePageLoad } from '@/lib/performance-monitor';
+import { Particles } from '@/components/shared/animated-background';
+import { GlassCard } from '@/components/shared/animated-card';
 import type { Competition } from '@/interface/competition';
 import { toast } from 'sonner';
 
@@ -83,9 +85,11 @@ export function JudgeDashboardClient() {
   // Show loading state while checking authentication
   if (userLoading) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+      <div className="min-h-screen p-4 md:p-8">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+          </div>
         </div>
       </div>
     );
@@ -97,62 +101,75 @@ export function JudgeDashboardClient() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            {t('judge.dashboard')}
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            {t('common.welcome')}, {user.username}! {t('judge.selectCompetition')}
-          </p>
-        </div>
+    <Particles>
+      <div className="min-h-screen p-4 md:p-8">
+        <div className="max-w-6xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+              {t('judge.dashboard')}
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400">
+              {t('common.welcome')}, {user.username}! {t('judge.selectCompetition')}
+            </p>
+          </div>
 
-        {/* User Menu */}
-        <div className="relative user-menu">
-          <button
-            onClick={() => setShowUserMenu(!showUserMenu)}
-            className="flex items-center gap-3 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-          >
-            <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
-              <span className="text-white text-sm font-medium">
-                {user?.username?.charAt(0)?.toUpperCase() || 'J'}
-              </span>
-            </div>
-            <div className="text-left">
-              <p className="text-sm font-medium text-gray-900 dark:text-white">
-                {user?.username || t('judge.dashboard')}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {t('judge.dashboard')}
-              </p>
-            </div>
-            <svg 
-              className={`w-4 h-4 text-gray-400 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
+          {/* User Menu */}
+          <div className="relative user-menu">
+            <button
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="flex items-center gap-3 px-4 py-2 rounded-xl backdrop-blur-lg bg-white/30 dark:bg-gray-800/10 border border-white/40 dark:border-gray-700/20 shadow-lg hover:bg-white/40 dark:hover:bg-gray-800/20 transition-all duration-300"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-          
-          {/* Dropdown Menu */}
-          {showUserMenu && (
-            <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50">
+              <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center shadow-md">
+                <span className="text-white text-sm font-medium">
+                  {user?.username?.charAt(0)?.toUpperCase() || 'J'}
+                </span>
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  {user?.username || t('judge.dashboard')}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {t('judge.dashboard')}
+                </p>
+              </div>
+              <svg 
+                className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${showUserMenu ? 'rotate-180' : ''}`} 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            
+            {/* Dropdown Menu */}
+            <div
+              className={`absolute right-0 mt-2 w-56 rounded-xl overflow-hidden backdrop-blur-lg bg-white/30 dark:bg-gray-800/10 border border-white/40 dark:border-gray-700/20 shadow-2xl transition-all duration-300 z-50 ${
+                showUserMenu
+                  ? 'opacity-100 scale-100 pointer-events-auto'
+                  : 'opacity-0 scale-95 pointer-events-none'
+              }`}
+            >
               <div className="py-1">
-                <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+                {/* User Info Header */}
+                <div className="px-4 py-3 border-b border-white/10 dark:border-gray-700/20">
                   <p className="text-sm font-medium text-gray-900 dark:text-white">
                     {user?.username || t('judge.dashboard')}
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
                     {user?.email}
                   </p>
                 </div>
+                
+                {/* Score Summary Link */}
                 <button
-                  onClick={() => router.push(`/${locale}/score-summary`)}
-                  className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    router.push(`/${locale}/score-summary`);
+                  }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-gray-900 dark:text-white hover:bg-white/20 dark:hover:bg-gray-700/20 transition-all duration-200"
                 >
                   <div className="flex items-center gap-2">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -161,12 +178,14 @@ export function JudgeDashboardClient() {
                     {t('judge.scoreSummary')}
                   </div>
                 </button>
+                
+                {/* Settings Button */}
                 <button
                   onClick={() => {
                     setShowUserMenu(false);
                     setShowSettings(true);
                   }}
-                  className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  className="w-full text-left px-4 py-2.5 text-sm text-gray-900 dark:text-white hover:bg-white/20 dark:hover:bg-gray-700/20 transition-all duration-200"
                 >
                   <div className="flex items-center gap-2">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -176,9 +195,11 @@ export function JudgeDashboardClient() {
                     {t('common.settings')}
                   </div>
                 </button>
+                
+                {/* Logout Button */}
                 <button
                   onClick={handleLogout}
-                  className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  className="w-full text-left px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-500/10 dark:hover:bg-red-500/20 transition-all duration-200 border-t border-white/10 dark:border-gray-700/20"
                 >
                   <div className="flex items-center gap-2">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -189,22 +210,23 @@ export function JudgeDashboardClient() {
                 </button>
               </div>
             </div>
-          )}
+          </div>
+        </div>
+
+        {/* Competition Selector */}
+        <DynamicCompetitionSelector
+          onSelect={handleCompetitionSelect}
+          selectedCompetition={selectedCompetition}
+        />
+
+        {/* Settings Modal */}
+        <SettingsModal 
+          isOpen={showSettings} 
+          onClose={() => setShowSettings(false)}
+          currentLocale={locale as 'zh' | 'en'}
+        />
         </div>
       </div>
-
-      {/* Competition Selector */}
-      <DynamicCompetitionSelector
-        onSelect={handleCompetitionSelect}
-        selectedCompetition={selectedCompetition}
-      />
-
-      {/* Settings Modal */}
-      <SettingsModal 
-        isOpen={showSettings} 
-        onClose={() => setShowSettings(false)}
-        currentLocale={locale as 'zh' | 'en'}
-      />
-    </div>
+    </Particles>
   );
 }

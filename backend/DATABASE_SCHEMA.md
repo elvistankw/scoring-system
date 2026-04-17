@@ -42,6 +42,7 @@ id                SERIAL PRIMARY KEY
 name              VARCHAR(100) NOT NULL
 competition_type  VARCHAR(20) CHECK (competition_type IN ('individual', 'duo_team', 'challenge'))
 region            VARCHAR(50) NOT NULL
+division          VARCHAR(50)
 status            VARCHAR(20) DEFAULT 'upcoming' CHECK (status IN ('upcoming', 'active', 'completed'))
 start_date        TIMESTAMP
 end_date          TIMESTAMP
@@ -53,6 +54,7 @@ updated_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 **Indexes:**
 - `idx_competitions_type` on competition_type
 - `idx_competitions_region` on region
+- `idx_competitions_division` on division
 - `idx_competitions_status` on status
 - `idx_competitions_created_by` on created_by
 - `idx_competitions_start_date` on start_date

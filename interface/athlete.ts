@@ -10,6 +10,9 @@ export interface Athlete {
   team_name?: string | null;
   contact_email?: string | null;
   contact_phone?: string | null;
+  age: number;
+  gender: 'male' | 'female' | 'other';
+  school: string;
   created_at: string;
   updated_at: string;
 }
@@ -20,6 +23,9 @@ export interface CreateAthleteRequest {
   team_name?: string;
   contact_email?: string;
   contact_phone?: string;
+  age: number;
+  gender: 'male' | 'female' | 'other';
+  school: string;
 }
 
 export interface UpdateAthleteRequest {
@@ -28,6 +34,9 @@ export interface UpdateAthleteRequest {
   team_name?: string;
   contact_email?: string;
   contact_phone?: string;
+  age?: number;
+  gender?: 'male' | 'female' | 'other';
+  school?: string;
 }
 
 export interface AthleteWithCompetitions extends Athlete {

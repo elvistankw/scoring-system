@@ -10,6 +10,8 @@ import { API_ENDPOINTS, getAuthHeaders } from '@/lib/api-config';
 import type { Competition, CompetitionStatus, CompetitionType } from '@/interface/competition';
 import { SkeletonCompetitionList } from '@/components/shared/loading-skeleton';
 import { useTranslation } from '@/i18n/use-dictionary';
+import { GlassCard } from '@/components/shared/animated-card';
+import { GlassSelect } from '@/components/shared/glass-select';
 
 interface CompetitionSelectorProps {
   onSelect: (competition: Competition) => void;
@@ -27,6 +29,8 @@ export function CompetitionSelector({ onSelect, selectedCompetition }: Competiti
   const [statusFilter, setStatusFilter] = useState<CompetitionStatus | 'all'>('active');
   const [regionFilter, setRegionFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<CompetitionType | 'all'>('all');
+  const [divisionFilter, setDivisionFilter] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState<string>('');
   const [competitionsWithAvailability, setCompetitionsWithAvailability] = useState<CompetitionWithAvailability[]>([]);
 
   // Fetch competitions with filters - judges only see active and upcoming
@@ -40,14 +44,18 @@ export function CompetitionSelector({ onSelect, selectedCompetition }: Competiti
     return Array.from(uniqueRegions).sort();
   }, [competitions]);
 
-  // Filter competitions by region and type on client side
+  // Filter competitions by region, type, and division on client side
   const filteredCompetitions = useMemo(() => {
     return competitions.filter(competition => {
       const matchesRegion = regionFilter === 'all' || competition.region === regionFilter;
       const matchesType = typeFilter === 'all' || competition.competition_type === typeFilter;
-      return matchesRegion && matchesType;
+      const matchesDivision = divisionFilter === 'all' || competition.division === divisionFilter;
+      const matchesSearch = !searchTerm || 
+        competition.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        competition.region.toLowerCase().includes(searchTerm.toLowerCase());
+      return matchesRegion && matchesType && matchesDivision && matchesSearch;
     });
-  }, [competitions, regionFilter, typeFilter]);
+  }, [competitions, regionFilter, typeFilter, divisionFilter, searchTerm]);
 
   // Fetch available athletes count for each active competition
   useEffect(() => {
@@ -159,63 +167,86 @@ export function CompetitionSelector({ onSelect, selectedCompetition }: Competiti
 
   return (
     <div>
-      {/* Filters */}
-      <div className="mb-6 flex flex-wrap gap-4">
-        {/* Status Filter */}
-        <div>
-          <label htmlFor="status-filter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('competition.status')}
-          </label>
-          <select
-            id="status-filter"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as CompetitionStatus | 'all')}
-            className="block w-48 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+      {/* Search Bar with Glass Morphism */}
+      <div className="mb-4">
+        <div className="relative backdrop-blur-md bg-white/70 dark:bg-gray-800/70 rounded-xl border border-white/20 dark:border-gray-700/50 shadow-lg hover:shadow-xl transition-all duration-300">
+          <input
+            type="text"
+            placeholder={t('common.search') + ' ' + t('competition.competitionName')}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full px-4 py-3 pl-12 bg-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded-xl"
+          />
+          <svg
+            className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
           >
-            <option value="all">{t('competition.allStatus')}</option>
-            <option value="active">{t('competition.active')}</option>
-            <option value="upcoming">{t('competition.upcoming')}</option>
-          </select>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
         </div>
+      </div>
+
+      {/* Filters */}
+      <div className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Status Filter */}
+        <GlassSelect
+          id="status-filter"
+          label={t('competition.status')}
+          value={statusFilter}
+          onChange={(value) => setStatusFilter(value as CompetitionStatus | 'all')}
+          options={[
+            { value: 'all', label: t('competition.allStatus') },
+            { value: 'active', label: t('competition.active') },
+            { value: 'upcoming', label: t('competition.upcoming') },
+          ]}
+        />
 
         {/* Region Filter */}
-        <div>
-          <label htmlFor="region-filter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('competition.region')}
-          </label>
-          <select
-            id="region-filter"
-            value={regionFilter}
-            onChange={(e) => setRegionFilter(e.target.value)}
-            className="block w-48 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-          >
-            <option value="all">{t('competition.allRegions')}</option>
-            {regions.map(region => (
-              <option key={region} value={region}>
-                {region}
-              </option>
-            ))}
-          </select>
-        </div>
+        <GlassSelect
+          id="region-filter"
+          label={t('competition.region')}
+          value={regionFilter}
+          onChange={setRegionFilter}
+          options={[
+            { value: 'all', label: t('competition.allRegions') },
+            ...regions.map(region => ({ value: region, label: region })),
+          ]}
+        />
 
         {/* Type Filter */}
-        <div>
-          <label htmlFor="type-filter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('competition.competitionType')}
-          </label>
-          <select
-            id="type-filter"
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value as CompetitionType | 'all')}
-            className="block w-48 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-          >
-            <option value="all">{t('competition.allTypes')}</option>
-            <option value="individual">{t('competition.individual')}</option>
-            <option value="duo">{t('competition.duo')}</option>
-            <option value="team">{t('competition.team')}</option>
-            <option value="challenge">{t('competition.challenge')}</option>
-          </select>
-        </div>
+        <GlassSelect
+          id="type-filter"
+          label={t('competition.competitionType')}
+          value={typeFilter}
+          onChange={(value) => setTypeFilter(value as CompetitionType | 'all')}
+          options={[
+            { value: 'all', label: t('competition.allTypes') },
+            { value: 'individual', label: t('competition.individual') },
+            { value: 'duo', label: t('competition.duo') },
+            { value: 'team', label: t('competition.team') },
+            { value: 'challenge', label: t('competition.challenge') },
+          ]}
+        />
+
+        {/* Division Filter */}
+        <GlassSelect
+          id="division-filter"
+          label={t('competition.division')}
+          value={divisionFilter}
+          onChange={setDivisionFilter}
+          options={[
+            { value: 'all', label: t('competition.allDivisions') },
+            { value: '小学组', label: t('competition.primarySchool') },
+            { value: '公开组', label: t('competition.openDivision') },
+          ]}
+        />
       </div>
 
       {/* Competition Count */}
@@ -234,7 +265,7 @@ export function CompetitionSelector({ onSelect, selectedCompetition }: Competiti
           </p>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 grid-cols-1">
           {competitionsWithAvailability.map((competition) => {
             // Determine scoring availability status
             const isScoringCompleted = competition.status === 'active' && 
@@ -243,22 +274,20 @@ export function CompetitionSelector({ onSelect, selectedCompetition }: Competiti
             const canScore = competition.status === 'active' && !isScoringCompleted;
 
             return (
-              <button
+              <GlassCard
                 key={competition.id}
-                onClick={() => onSelect(competition)}
-                disabled={competition.status !== 'active'}
+                hoverEffect="scale"
+                onClick={() => competition.status === 'active' && onSelect(competition)}
                 className={`
-                  text-left border rounded-lg p-6 transition-all duration-200
+                  text-left transition-all duration-200
                   ${competition.status === 'active' 
-                    ? 'hover:shadow-lg hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer'
+                    ? 'cursor-pointer'
                     : 'cursor-not-allowed opacity-60'
                   }
                   ${
                     selectedCompetition?.id === competition.id
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-md'
-                      : competition.status === 'active'
-                      ? 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
-                      : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700'
+                      ? 'ring-2 ring-blue-500 bg-blue-500/20'
+                      : ''
                   }
                 `}
               >
@@ -272,6 +301,11 @@ export function CompetitionSelector({ onSelect, selectedCompetition }: Competiti
                 <span className="inline-block px-2 py-1 text-xs font-medium rounded bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
                   {getCompetitionTypeLabel(competition.competition_type)}
                 </span>
+                {competition.division && (
+                  <span className="inline-block px-2 py-1 text-xs font-medium rounded bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+                    {competition.division}
+                  </span>
+                )}
                 {competition.athlete_count !== undefined && (
                   <span className="inline-block px-2 py-1 text-xs font-medium rounded bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 flex items-center gap-1">
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -300,7 +334,7 @@ export function CompetitionSelector({ onSelect, selectedCompetition }: Competiti
               </div>
 
               {/* Status Badge and Scoring Availability */}
-              <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
                 <div>
                   <span className={`inline-block px-2 py-1 text-xs font-medium rounded ${getStatusBadgeColor(competition.status)}`}>
                     {getStatusLabel(competition.status)}
@@ -308,33 +342,35 @@ export function CompetitionSelector({ onSelect, selectedCompetition }: Competiti
                 </div>
                 
                 {/* Scoring Availability Indicator */}
-                {isScoringCompleted ? (
-                  <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
-                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                    <span>{t('judge.scoringCompleted')}</span>
-                  </div>
-                ) : canScore ? (
-                  <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
-                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                    <span>{t('judge.canScore')}</span>
-                    {competition.available_athletes_count !== undefined && (
-                      <span className="ml-1 text-gray-500 dark:text-gray-400">
-                        ({competition.available_athletes_count})
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clipRule="evenodd" />
-                    </svg>
-                    <span>{t('judge.cannotScore')}</span>
-                  </div>
-                )}
+                <div className="flex-shrink-0">
+                  {isScoringCompleted ? (
+                    <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <span>{t('judge.scoringCompleted')}</span>
+                    </div>
+                  ) : canScore ? (
+                    <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <span>{t('judge.canScore')}</span>
+                      {competition.available_athletes_count !== undefined && (
+                        <span className="ml-1 text-gray-500 dark:text-gray-400">
+                          ({competition.available_athletes_count})
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clipRule="evenodd" />
+                      </svg>
+                      <span>{t('judge.cannotScore')}</span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Selected Indicator */}
@@ -346,7 +382,7 @@ export function CompetitionSelector({ onSelect, selectedCompetition }: Competiti
                   <span>{t('common.selected')}</span>
                 </div>
               )}
-            </button>
+            </GlassCard>
           );
         })}
         </div>

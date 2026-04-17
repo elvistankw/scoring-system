@@ -187,11 +187,11 @@ const getCompetitionById = async (req, res, next) => {
  */
 const createCompetition = async (req, res, next) => {
   try {
-    const { name, competition_type, region, status, start_date, end_date } = req.body;
+    const { name, competition_type, region, division, status, start_date, end_date } = req.body;
 
     // Validate required fields
-    if (!name || !competition_type || !region) {
-      return next(new AppError('Please provide name, competition_type, and region', 400));
+    if (!name || !competition_type || !region || !division) {
+      return next(new AppError('Please provide name, competition_type, region, and division', 400));
     }
 
     // Validate competition type
@@ -246,13 +246,14 @@ const createCompetition = async (req, res, next) => {
     // Create competition
     const result = await db.query(
       `INSERT INTO competitions 
-       (name, competition_type, region, status, start_date, end_date, created_by, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+       (name, competition_type, region, division, status, start_date, end_date, created_by, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
        RETURNING *`,
       [
         name,
         competition_type,
         region,
+        division,
         finalStatus,
         start_date || null,
         end_date || null,
@@ -309,7 +310,13 @@ const createCompetition = async (req, res, next) => {
 const updateCompetition = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, competition_type, region, status, start_date, end_date } = req.body;
+    const { name, competition_type, region, division, status, start_date, end_date } = req.body;
+
+    // Debug log
+    console.log('🔍 Update Competition Request:');
+    console.log('   ID:', id);
+    console.log('   Body:', req.body);
+    console.log('   Division:', division);
 
     // Validate ID
     if (!id || isNaN(id)) {
@@ -397,6 +404,15 @@ const updateCompetition = async (req, res, next) => {
       paramCount++;
       updates.push(`region = $${paramCount}`);
       params.push(region);
+    }
+
+    if (division !== undefined) {
+      paramCount++;
+      updates.push(`division = $${paramCount}`);
+      params.push(division);
+      console.log(`   ✅ Adding division update: $${paramCount} = "${division}"`);
+    } else {
+      console.log(`   ⚠️  Division is undefined, not updating`);
     }
 
     if (finalStatus !== undefined) {

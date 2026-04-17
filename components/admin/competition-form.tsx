@@ -28,6 +28,7 @@ export function CompetitionForm({ competition, onSuccess, onCancel }: Competitio
     name: '',
     competition_type: 'individual',
     region: '',
+    division: '', // Required field
     start_date: '',
     end_date: '',
     // 注意：创建新比赛时不设置 status，让后端自动判断
@@ -40,6 +41,7 @@ export function CompetitionForm({ competition, onSuccess, onCancel }: Competitio
         name: competition.name,
         competition_type: competition.competition_type,
         region: competition.region,
+        division: competition.division || '', // 确保不是 null 或 undefined
         start_date: competition.start_date.split('T')[0],
         end_date: competition.end_date.split('T')[0],
         status: competition.status,
@@ -58,6 +60,11 @@ export function CompetitionForm({ competition, onSuccess, onCancel }: Competitio
     
     if (!formData.region.trim()) {
       toast.error(t('competition.enterRegion'));
+      return;
+    }
+    
+    if (!formData.division.trim()) {
+      toast.error(t('competition.enterDivision') || '请输入组别');
       return;
     }
     
@@ -151,6 +158,27 @@ export function CompetitionForm({ competition, onSuccess, onCancel }: Competitio
           placeholder={t('competition.regionExample')}
           required
         />
+      </div>
+
+      <div>
+        <label htmlFor="division" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          {t('competition.division') || '组别'} *
+        </label>
+        <select
+          id="division"
+          name="division"
+          value={formData.division || ''} // 确保不是 null 或 undefined
+          onChange={handleChange}
+          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+          required
+        >
+          <option value="">{t('competition.selectDivision') || '请选择组别'}</option>
+          <option value="小学组">{t('competition.primaryDivision') || '小学组'}</option>
+          <option value="公开组">{t('competition.openDivision') || '公开组（中学组）'}</option>
+        </select>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          {t('competition.divisionHelp') || '小学组或公开组（中学组）'}
+        </p>
       </div>
 
       {competition && (

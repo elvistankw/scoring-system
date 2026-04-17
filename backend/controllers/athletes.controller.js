@@ -195,11 +195,23 @@ const searchAthletes = async (req, res, next) => {
  */
 const createAthlete = async (req, res, next) => {
   try {
-    const { name, athlete_number, team_name, contact_email, contact_phone } = req.body;
+    const { name, athlete_number, team_name, contact_email, contact_phone, age, gender, school } = req.body;
 
     // Validate required fields
     if (!name) {
       return next(new AppError('Please provide athlete name', 400));
+    }
+
+    if (!age || age < 1 || age > 100) {
+      return next(new AppError('Please provide a valid age (1-100)', 400));
+    }
+
+    if (!gender || !['male', 'female', 'other'].includes(gender)) {
+      return next(new AppError('Please provide a valid gender (male, female, or other)', 400));
+    }
+
+    if (!school || school.trim().length === 0) {
+      return next(new AppError('Please provide school name', 400));
     }
 
     // Check for duplicate athlete_number if provided
@@ -217,10 +229,10 @@ const createAthlete = async (req, res, next) => {
     // Create athlete
     const result = await db.query(
       `INSERT INTO athletes 
-       (name, athlete_number, team_name, contact_email, contact_phone, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+       (name, athlete_number, team_name, contact_email, contact_phone, age, gender, school, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
        RETURNING *`,
-      [name, athlete_number || null, team_name || null, contact_email || null, contact_phone || null]
+      [name, athlete_number || null, team_name || null, contact_email || null, contact_phone || null, age, gender, school]
     );
 
     res.status(201).json({
@@ -242,10 +254,25 @@ const createAthlete = async (req, res, next) => {
 const updateAthlete = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, athlete_number, team_name, contact_email, contact_phone } = req.body;
+    const { name, athlete_number, team_name, contact_email, contact_phone, age, gender, school } = req.body;
 
     if (!id || isNaN(id)) {
       return next(new AppError('Invalid athlete ID', 400));
+    }
+
+    // Validate age if provided
+    if (age !== undefined && (age < 1 || age > 100)) {
+      return next(new AppError('Please provide a valid age (1-100)', 400));
+    }
+
+    // Validate gender if provided
+    if (gender !== undefined && !['male', 'female', 'other'].includes(gender)) {
+      return next(new AppError('Please provide a valid gender (male, female, or other)', 400));
+    }
+
+    // Validate school if provided
+    if (school !== undefined && school.trim().length === 0) {
+      return next(new AppError('School name cannot be empty', 400));
     }
 
     // Check if athlete exists
@@ -303,6 +330,24 @@ const updateAthlete = async (req, res, next) => {
       paramCount++;
       updates.push(`contact_phone = $${paramCount}`);
       params.push(contact_phone);
+    }
+
+    if (age !== undefined) {
+      paramCount++;
+      updates.push(`age = $${paramCount}`);
+      params.push(age);
+    }
+
+    if (gender !== undefined) {
+      paramCount++;
+      updates.push(`gender = $${paramCount}`);
+      params.push(gender);
+    }
+
+    if (school !== undefined) {
+      paramCount++;
+      updates.push(`school = $${paramCount}`);
+      params.push(school);
     }
 
     if (updates.length === 0) {

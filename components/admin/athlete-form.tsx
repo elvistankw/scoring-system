@@ -25,6 +25,9 @@ export function AthleteForm({ athlete, onSuccess, onCancel }: AthleteFormProps) 
     team_name: '',
     contact_email: '',
     contact_phone: '',
+    age: 0,
+    gender: '' as any,
+    school: '',
   });
 
   // Populate form when editing
@@ -36,6 +39,9 @@ export function AthleteForm({ athlete, onSuccess, onCancel }: AthleteFormProps) 
         team_name: athlete.team_name || '',
         contact_email: athlete.contact_email || '',
         contact_phone: athlete.contact_phone || '',
+        age: athlete.age,
+        gender: athlete.gender,
+        school: athlete.school || '',
       });
     }
   }, [athlete]);
@@ -62,9 +68,12 @@ export function AthleteForm({ athlete, onSuccess, onCancel }: AthleteFormProps) 
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => ({ 
+      ...prev, 
+      [name]: name === 'age' ? parseInt(value) || 0 : value 
+    }));
   };
 
   return (
@@ -102,6 +111,59 @@ export function AthleteForm({ athlete, onSuccess, onCancel }: AthleteFormProps) 
       </div>
 
       <div>
+        <label htmlFor="age" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          {t('athlete.age')} <span className="text-red-500">*</span>
+        </label>
+        <input
+          type="number"
+          id="age"
+          name="age"
+          required
+          min="1"
+          max="100"
+          value={formData.age || ''}
+          onChange={handleChange}
+          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+          placeholder={t('athlete.agePlaceholder')}
+        />
+      </div>
+
+      <div>
+        <label htmlFor="gender" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          {t('athlete.gender')} <span className="text-red-500">*</span>
+        </label>
+        <select
+          id="gender"
+          name="gender"
+          required
+          value={formData.gender}
+          onChange={handleChange}
+          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+        >
+          <option value="">{t('athlete.selectGender')}</option>
+          <option value="male">{t('athlete.male')}</option>
+          <option value="female">{t('athlete.female')}</option>
+        </select>
+      </div>
+
+      <div>
+        <label htmlFor="school" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          {t('athlete.school')} <span className="text-red-500">*</span>
+        </label>
+        <input
+          type="text"
+          id="school"
+          name="school"
+          required
+          maxLength={200}
+          value={formData.school || ''}
+          onChange={handleChange}
+          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+          placeholder={t('athlete.schoolPlaceholder')}
+        />
+      </div>
+
+      <div>
         <label htmlFor="team_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           {t('athlete.teamName')}
         </label>
@@ -109,7 +171,7 @@ export function AthleteForm({ athlete, onSuccess, onCancel }: AthleteFormProps) 
           type="text"
           id="team_name"
           name="team_name"
-          value={formData.team_name}
+          value={formData.team_name || ''}
           onChange={handleChange}
           className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
           placeholder={t('athlete.teamNamePlaceholder')}
@@ -124,7 +186,7 @@ export function AthleteForm({ athlete, onSuccess, onCancel }: AthleteFormProps) 
           type="email"
           id="contact_email"
           name="contact_email"
-          value={formData.contact_email}
+          value={formData.contact_email || ''}
           onChange={handleChange}
           className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
           placeholder="example@email.com"
@@ -139,7 +201,7 @@ export function AthleteForm({ athlete, onSuccess, onCancel }: AthleteFormProps) 
           type="tel"
           id="contact_phone"
           name="contact_phone"
-          value={formData.contact_phone}
+          value={formData.contact_phone || ''}
           onChange={handleChange}
           className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
           placeholder="13800138000"
