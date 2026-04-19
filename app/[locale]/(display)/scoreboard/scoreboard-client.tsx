@@ -86,7 +86,7 @@ export function ScoreboardClient() {
         <div className="max-w-4xl mx-auto">
           <h1 className="text-4xl font-bold mb-8 text-center">{t('competition.selectCompetition')}</h1>
           <div className="grid gap-4 md:grid-cols-2">
-            {competitions.map((competition) => (
+            {competitions.map((competition: Competition) => (
               <button
                 key={competition.id}
                 onClick={() => setSelectedCompetition(competition)}

@@ -47,7 +47,7 @@ export function RankingsClient() {
 
   // Handle competition selection
   const handleCompetitionChange = (competitionId: string) => {
-    const competition = competitions.find(c => c.id === parseInt(competitionId));
+    const competition = competitions.find((c: Competition) => c.id === parseInt(competitionId));
     if (competition) {
       setSelectedCompetition(competition);
       setSelectedRegion(''); // Reset region filter when changing competition
@@ -117,7 +117,7 @@ export function RankingsClient() {
               onChange={(e) => handleCompetitionChange(e.target.value)}
               className="bg-gray-700 text-white px-4 py-2 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[300px]"
             >
-              {competitions.map((competition) => (
+              {competitions.map((competition: Competition) => (
                 <option key={competition.id} value={competition.id}>
                   {competition.name} - {competition.region}
                 </option>
