@@ -752,8 +752,8 @@ const partialScoreUpdate = async (req, res, next) => {
         RETURNING *
       `;
 
-    console.log('🔍 Update Query:', updateQuery);
-    console.log('🔍 Values:', values);
+      console.log('🔍 Update Query:', updateQuery);
+      console.log('🔍 Values:', [value, competition_id, athlete_id, judge_id]);
       
       const updateResult = await client.query(updateQuery, [
         value, competition_id, athlete_id, judge_id
@@ -1055,9 +1055,6 @@ const batchSubmitScores = async (req, res, next) => {
           RETURNING *
         `;
 
-    console.log('🔍 Update Query:', updateQuery);
-    console.log('🔍 Values:', values);
-
         const updateValues = [
           scores.action_difficulty !== undefined ? scores.action_difficulty : null,
           scores.stage_artistry !== undefined ? scores.stage_artistry : null,
@@ -1067,6 +1064,9 @@ const batchSubmitScores = async (req, res, next) => {
           scores.action_interaction !== undefined ? scores.action_interaction : null,
           existingScoreId
         ];
+
+        console.log('🔍 Update Query:', updateQuery);
+        console.log('🔍 Values:', updateValues);
 
         const updateResult = await client.query(updateQuery, updateValues);
         savedScore = updateResult.rows[0];
