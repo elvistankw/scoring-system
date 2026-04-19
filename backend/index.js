@@ -17,6 +17,7 @@ const {
   securityHeaders,
   getCorsConfig
 } = require('./middleware');
+const { sanitizeInput } = require('./middleware/sanitize-input');
 
 // Import routes
 const authRoutes = require('./routes/auth.routes');
@@ -24,6 +25,8 @@ const competitionsRoutes = require('./routes/competitions.routes');
 const athletesRoutes = require('./routes/athletes.routes');
 const scoresRoutes = require('./routes/scores.routes');
 const cacheRoutes = require('./routes/cache.routes');
+const judgesRoutes = require('./routes/judges.routes');
+const eventsRoutes = require('./routes/events.routes');
 
 // Import WebSocket setup
 const { initializeWebSocket, handleScoreUpdate } = require('./socket');
@@ -59,6 +62,9 @@ app.use(cors(getCorsConfig(process.env.CORS_ORIGIN || process.env.FRONTEND_URL))
 app.use(express.json({ limit: '10kb' })); // Limit body size for security
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
+// Sanitize all user input to prevent XSS attacks
+app.use(sanitizeInput);
+
 // Apply general rate limiter to all routes
 app.use('/api/', generalLimiter);
 
@@ -68,6 +74,8 @@ app.use('/api/competitions', competitionsRoutes);
 app.use('/api/athletes', athletesRoutes);
 app.use('/api/scores', scoresRoutes);
 app.use('/api/cache', cacheRoutes);
+app.use('/api/judges', judgesRoutes);
+app.use('/api/events', eventsRoutes);
 
 // Google OAuth routes - only load if enabled
 const GOOGLE_AUTH_ENABLED = process.env.NODE_ENV === 'development' || 
@@ -77,11 +85,16 @@ if (GOOGLE_AUTH_ENABLED) {
   const googleAuthRoutes = require('./routes/google-auth.routes');
   app.use('/api/auth/google', googleAuthRoutes);
 
-  // Google Sheets & Drive routes
-  const googleSheetsRoutes = require('./routes/google-sheets.routes');
-  const googleDriveRoutes = require('./routes/google-drive.routes');
-  app.use('/api/google/sheets', googleSheetsRoutes);
-  app.use('/api/google/drive', googleDriveRoutes);
+  // Google Sheets & Drive routes - only load if Google services exist
+  try {
+    const googleSheetsRoutes = require('./routes/google-sheets.routes');
+    const googleDriveRoutes = require('./routes/google-drive.routes');
+    app.use('/api/google/sheets', googleSheetsRoutes);
+    app.use('/api/google/drive', googleDriveRoutes);
+    console.log('✅ Google services routes enabled');
+  } catch (error) {
+    console.log('⚠️ Google services routes not available:', error.message);
+  }
   
   console.log('✅ Google OAuth routes enabled');
 } else {

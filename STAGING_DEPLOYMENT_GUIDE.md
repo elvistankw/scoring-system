@@ -36,7 +36,7 @@ git commit -m "Initial commit for staging deployment"
 2. **推送到 GitHub**
 ```bash
 # 创建 GitHub 仓库后
-git remote add origin https://github.com/你的用户名/scoring-system.git
+git remote add origin https://github.com/elvistankw/scoring-system.git
 git branch -M main
 git push -u origin main
 ```
