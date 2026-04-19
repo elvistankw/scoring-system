@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { Providers } from '@/components/shared/providers';
 import { ConditionalFooter } from '@/components/shared/conditional-footer';
-import { AuthDebugPanel } from '@/components/debug/auth-debug-panel';
 import { getDictionary } from '@/i18n/get-dictionary';
 import { getLocale, type Locale } from '@/i18n/config';
 
@@ -31,8 +30,6 @@ export default async function LocaleLayout({
           {children}
         </main>
         <ConditionalFooter />
-        {/* Debug panel - only shows in development */}
-        <AuthDebugPanel />
       </div>
     </Providers>
   );
