@@ -21,12 +21,12 @@ const rateLimitHandler = (req, res, next) => {
 /**
  * General API rate limiter
  * Applies to all API routes
- * Development: 1000 requests per 15 minutes per IP
+ * Development: 10000 requests per 15 minutes per IP (very high for development)
  * Production: Should be reduced to 100 requests
  */
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // 1000 requests per window (increased for development)
+  max: 10000, // 10000 requests per window (very high for development)
   message: 'Too many requests from this IP. Please try again later.',
   standardHeaders: true, // Return rate limit info in `RateLimit-*` headers
   legacyHeaders: false, // Disable `X-RateLimit-*` headers
@@ -36,13 +36,13 @@ const generalLimiter = rateLimit({
 /**
  * Authentication rate limiter
  * Stricter limits for login/register endpoints
- * Development: 50 requests per 15 minutes per IP
+ * Development: 500 requests per 15 minutes per IP (very high for development)
  * Production: Should be reduced to 5-10 requests
  * Requirements: 1.1, 10.4
  */
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 50, // 50 requests per window (increased for development)
+  max: 500, // 500 requests per window (very high for development)
   message: 'Too many authentication attempts. Please try again after 15 minutes.',
   standardHeaders: true,
   legacyHeaders: false,

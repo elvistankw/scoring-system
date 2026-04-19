@@ -8,6 +8,9 @@ import './globals.css';
 export const metadata: Metadata = {
   title: '评分系统 | Scoring System',
   description: '实时评分系统 - 支持多种比赛类型的专业评分平台',
+  icons: {
+    icon: '/favicon.ico',
+  },
 };
 
 export default function RootLayout({
@@ -18,6 +21,7 @@ export default function RootLayout({
   return (
     <html lang="zh" suppressHydrationWarning>
       <head>
+        <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>" />
         <style dangerouslySetInnerHTML={{
           __html: `
             * {

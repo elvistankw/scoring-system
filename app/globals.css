@@ -420,3 +420,131 @@ code, pre {
   font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
   font-variant-ligatures: none;
 }
+
+/* ========================================
+   现代化滚动条样式 - Modern Scrollbar
+   ======================================== */
+
+/* Webkit 浏览器 (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.3);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: all 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.5);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: rgba(156, 163, 175, 0.7);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+/* 深色模式滚动条 */
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.2);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.4);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.dark ::-webkit-scrollbar-thumb:active {
+  background: rgba(156, 163, 175, 0.6);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+/* Firefox 浏览器 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.3) transparent;
+}
+
+.dark * {
+  scrollbar-color: rgba(156, 163, 175, 0.2) transparent;
+}
+
+/* 细滚动条变体 - 用于小区域 */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.3);
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.5);
+}
+
+/* 隐藏滚动条但保持滚动功能 */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* 彩色滚动条变体 - 用于特殊区域 */
+.scrollbar-blue::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.3);
+}
+
+.scrollbar-blue::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.5);
+}
+
+.scrollbar-blue::-webkit-scrollbar-thumb:active {
+  background: rgba(59, 130, 246, 0.7);
+}
+
+.scrollbar-green::-webkit-scrollbar-thumb {
+  background: rgba(16, 185, 129, 0.3);
+}
+
+.scrollbar-green::-webkit-scrollbar-thumb:hover {
+  background: rgba(16, 185, 129, 0.5);
+}
+
+.scrollbar-green::-webkit-scrollbar-thumb:active {
+  background: rgba(16, 185, 129, 0.7);
+}
+
+/* 平滑滚动 */
+html {
+  scroll-behavior: smooth;
+}
+
+/* 滚动容器优化 */
+.scroll-container {
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch; /* iOS 平滑滚动 */
+}

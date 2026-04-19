@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { useCompetition } from '@/hooks/use-competitions';
 import { CompetitionForm } from './competition-form';
 import { CompetitionAthleteList } from './competition-athlete-list';
+import { CompetitionScoresManager } from './competition-scores-manager';
 import { useTranslation } from '@/i18n/use-dictionary';
 
 export function CompetitionEditClient() {
@@ -19,12 +20,18 @@ export function CompetitionEditClient() {
   const competitionId = params.id ? parseInt(params.id as string) : null;
   
   const { competition, isLoading, isError, error } = useCompetition(competitionId);
-  const [activeTab, setActiveTab] = useState<'info' | 'athletes'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'athletes' | 'scores'>('info');
+  const [mounted, setMounted] = useState(false);
+
+  // Handle client-side mounting
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Handle error states
   useEffect(() => {
     if (isError && error) {
-      toast.error(error.message || t('competition.loadCompetitionsFailed'));
+      toast.error(error.message || '加载比赛失败');
     }
   }, [isError, error]);
 
@@ -38,19 +45,18 @@ export function CompetitionEditClient() {
     router.back();
   };
 
-  if (isLoading) {
+  // Show loading state during SSR and initial client load
+  if (!mounted || isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
         <div className="max-w-4xl mx-auto">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-6"></div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-              <div className="space-y-4">
-                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
-                <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
-                <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded"></div>
-              </div>
+          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-6 animate-pulse"></div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+            <div className="space-y-4">
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4 animate-pulse"></div>
+              <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4 animate-pulse"></div>
+              <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
             </div>
           </div>
         </div>
@@ -149,6 +155,16 @@ export function CompetitionEditClient() {
               >
                 {t('admin.athleteManagement')}
               </button>
+              <button
+                onClick={() => setActiveTab('scores')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === 'scores'
+                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                }`}
+              >
+                评分管理
+              </button>
             </nav>
           </div>
         </div>
@@ -166,12 +182,19 @@ export function CompetitionEditClient() {
                 onCancel={handleCancel}
               />
             </div>
-          ) : (
+          ) : activeTab === 'athletes' ? (
             <div>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 {t('admin.athleteManagement')}
               </h2>
               <CompetitionAthleteList competitionId={competition.id} />
+            </div>
+          ) : (
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                评分管理
+              </h2>
+              <CompetitionScoresManager competitionId={competition.id} competitionType={competition.competition_type} />
             </div>
           )}
         </div>

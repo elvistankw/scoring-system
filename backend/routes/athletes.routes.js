@@ -6,9 +6,10 @@ const express = require('express');
 const router = express.Router();
 const athletesController = require('../controllers/athletes.controller');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { dualAuth } = require('../middleware/dual-auth');
 
-// All athlete routes require authentication
-router.use(authenticate);
+// All athlete routes require authentication (JWT for admin, session for judge)
+router.use(dualAuth);
 
 // Search endpoint (must be before /:id to avoid conflict)
 router.get('/search', athletesController.searchAthletes);

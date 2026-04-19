@@ -1,0 +1,11 @@
+# Default Event Poster Placeholder
+
+This file should be replaced with an actual event poster image named `default-event-poster.jpg`.
+
+Recommended specifications:
+- Format: JPG or PNG
+- Resolution: 1920x1080 (16:9 aspect ratio) or higher
+- File size: Under 2MB for optimal loading
+- Content: Event branding, competition name, date, etc.
+
+The image will be used as the background for the judge landing page when no specific event poster is configured.

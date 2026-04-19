@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 import { Providers } from '@/components/shared/providers';
+import { ConditionalFooter } from '@/components/shared/conditional-footer';
+import { AuthDebugPanel } from '@/components/debug/auth-debug-panel';
 import { getDictionary } from '@/i18n/get-dictionary';
 import { getLocale, type Locale } from '@/i18n/config';
-import { useTranslation } from '@/i18n/use-dictionary';
 
 export const metadata: Metadata = {
   title: 'Scoring System | 评分系统',
@@ -25,7 +26,14 @@ export default async function LocaleLayout({
   
   return (
     <Providers dictionary={dictionary}>
-      {children}
+      <div className="min-h-screen flex flex-col">
+        <main className="flex-1">
+          {children}
+        </main>
+        <ConditionalFooter />
+        {/* Debug panel - only shows in development */}
+        <AuthDebugPanel />
+      </div>
     </Providers>
   );
 }

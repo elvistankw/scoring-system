@@ -33,7 +33,7 @@ const upload = multer({
 });
 
 // 上传文件到 Google Drive
-router.post('/upload', authenticate, requireRole(['admin']), upload.single('file'), async (req, res, next) => {
+router.post('/upload', authenticate, requireRole('admin'), upload.single('file'), async (req, res, next) => {
   try {
     if (!req.file) {
       return res.status(400).json({
@@ -79,7 +79,7 @@ router.post('/upload', authenticate, requireRole(['admin']), upload.single('file
 });
 
 // 创建文件夹
-router.post('/folder', authenticate, requireRole(['admin']), async (req, res, next) => {
+router.post('/folder', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const { folder_name, parent_folder_id } = req.body;
 
@@ -127,7 +127,7 @@ router.get('/files', authenticate, async (req, res, next) => {
 });
 
 // 删除文件
-router.delete('/files/:fileId', authenticate, requireRole(['admin']), async (req, res, next) => {
+router.delete('/files/:fileId', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const { fileId } = req.params;
 
@@ -143,7 +143,7 @@ router.delete('/files/:fileId', authenticate, requireRole(['admin']), async (req
 });
 
 // 分享文件
-router.post('/files/:fileId/share', authenticate, requireRole(['admin']), async (req, res, next) => {
+router.post('/files/:fileId/share', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     const { fileId } = req.params;
     const { email, role } = req.body;

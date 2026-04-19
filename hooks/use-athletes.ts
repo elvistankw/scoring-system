@@ -5,9 +5,10 @@
 
 import useSWR from 'swr';
 import { API_ENDPOINTS } from '@/lib/api-config';
-import { staticSwrConfig } from '@/lib/swr-config';
+import { staticSwrConfig, judgeFetcher } from '@/lib/swr-config';
 import { measureApiCall } from '@/lib/performance-monitor';
 import { handleApiError } from '@/lib/auth-error-handler';
+import { deviceManager } from '@/lib/device-manager';
 import type { 
   Athlete, 
   AthleteListResponse, 
@@ -48,7 +49,17 @@ const fetcher = async (url: string) => {
 };
 
 // Hook to fetch all athletes with optimized caching
-export function useAthletes(competitionId?: number, judgeId?: number, excludeScored?: boolean) {
+// Supports both JWT authentication (admin) and judge session authentication (judge)
+export function useAthletes(
+  competitionId?: number, 
+  judgeId?: number, 
+  excludeScored?: boolean,
+  judgeSessionId?: string // Optional judge session ID for device-based auth
+) {
+  // Check authentication - either JWT token or judge session
+  const hasToken = typeof window !== 'undefined' && localStorage.getItem('auth_token');
+  const hasJudgeSession = judgeSessionId && typeof window !== 'undefined';
+  
   let url = API_ENDPOINTS.athletes.list;
   const params = new URLSearchParams();
   
@@ -65,9 +76,24 @@ export function useAthletes(competitionId?: number, judgeId?: number, excludeSco
     url += `?${params.toString()}`;
   }
 
+  // Determine which fetcher to use based on authentication type
+  let swrKey: string | null = null;
+  let swrFetcher = fetcher;
+  
+  if (hasJudgeSession && judgeSessionId) {
+    // Use judge session authentication
+    swrKey = url;
+    swrFetcher = judgeFetcher(judgeSessionId, deviceManager.getDeviceId());
+  } else if (hasToken) {
+    // Use JWT authentication
+    swrKey = url;
+    swrFetcher = fetcher;
+  }
+  // If neither authentication method is available, swrKey remains null and no request is made
+
   const { data, error, mutate, isLoading } = useSWR<any>(
-    url,
-    fetcher,
+    swrKey,
+    swrFetcher,
     staticSwrConfig // Use static config for better performance
   );
 
@@ -83,8 +109,12 @@ export function useAthletes(competitionId?: number, judgeId?: number, excludeSco
 
 // Hook to fetch single athlete with competitions
 export function useAthlete(athleteId: number | null) {
+  // 检查认证状态
+  const hasToken = typeof window !== 'undefined' && localStorage.getItem('auth_token');
+  const swrKey = (hasToken && athleteId) ? API_ENDPOINTS.athletes.detail(athleteId) : null;
+  
   const { data, error, mutate, isLoading } = useSWR<any>(
-    athleteId ? API_ENDPOINTS.athletes.detail(athleteId) : null,
+    swrKey,
     fetcher,
     staticSwrConfig
   );
@@ -100,7 +130,10 @@ export function useAthlete(athleteId: number | null) {
 
 // Hook to search athletes with optimized debouncing
 export function useAthleteSearch(searchTerm: string) {
-  const url = searchTerm 
+  // 检查认证状态
+  const hasToken = typeof window !== 'undefined' && localStorage.getItem('auth_token');
+  
+  const url = (hasToken && searchTerm) 
     ? `${API_ENDPOINTS.athletes.list}/search?q=${encodeURIComponent(searchTerm)}`
     : null;
 

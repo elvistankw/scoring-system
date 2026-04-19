@@ -33,6 +33,10 @@ export function useTranslation() {
   const dict = useDictionary();
   
   const t = (key: string, fallback?: string): string => {
+    if (!key) {
+      return fallback || '';
+    }
+    
     const keys = key.split('.');
     let value: any = dict;
     

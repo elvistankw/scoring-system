@@ -6,7 +6,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/a
 // Google 授权相关
 export function useGoogleAuth() {
   const { data, error, mutate } = useSWR(`${API_BASE_URL}/auth/google/status`, async (url) => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('auth_token'); // 使用正确的 token key
     if (!token) return null;
 
     const response = await fetch(url, {

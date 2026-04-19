@@ -18,7 +18,7 @@ export function AdminDashboard() {
     if (!isLoading && !user) {
       router.push('/sign-in');
     } else if (!isLoading && user && !isAdmin) {
-      router.push('/judge-dashboard');
+      router.push('/judge-landing');
     }
   }, [user, isLoading, isAdmin, router]);
 
@@ -96,6 +96,34 @@ export function AdminDashboard() {
             </p>
             <button className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors">
               {t('admin.manageAthletes')}
+            </button>
+          </div>
+
+          {/* Judge Management Card */}
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm hover:shadow-md transition-shadow p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                {t('admin.judgeManagement')}
+              </h2>
+              <svg
+                className="w-8 h-8 text-orange-600 dark:text-orange-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"
+                />
+              </svg>
+            </div>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              {t('admin.createJudge')}
+            </p>
+            <button className="w-full px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors">
+              {t('admin.manageJudges')}
             </button>
           </div>
 

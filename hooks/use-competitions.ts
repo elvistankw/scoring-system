@@ -22,7 +22,13 @@ import type {
 async function fetcher(url: string): Promise<any> {
   return measureApiCall(`competitions:${url}`, async () => {
     const token = localStorage.getItem('auth_token');
-    const headers = token ? getAuthHeaders(token) : { 'Content-Type': 'application/json' };
+    
+    // 如果没有 token，直接抛出认证错误，不发送请求
+    if (!token) {
+      throw new Error('Authentication required - please sign in');
+    }
+    
+    const headers = getAuthHeaders(token);
     
     try {
       const response = await fetch(url, { headers });
@@ -53,6 +59,9 @@ export function useCompetitions(filters?: {
   type?: CompetitionType;
   includeCompletedForSummary?: boolean;
 }) {
+  // 检查认证状态 - 只有在有 token 时才发送请求
+  const hasToken = typeof window !== 'undefined' && localStorage.getItem('auth_token');
+  
   let url = API_ENDPOINTS.competitions.list;
   
   // Build query string for filters
@@ -66,9 +75,12 @@ export function useCompetitions(filters?: {
     url += `?${params.toString()}`;
   }
   
+  // 只有在有认证 token 时才发送请求，否则 SWR key 为 null
+  const swrKey = hasToken ? url : null;
+  
   // Use static config for competition lists (they don't change frequently)
   const { data, error, mutate, isLoading } = useSWR<CompetitionListResponse>(
-    url,
+    swrKey, // 条件性的 key，没有 token 时为 null，阻止请求
     fetcher,
     staticSwrConfig
   );
@@ -86,10 +98,14 @@ export function useCompetitions(filters?: {
 // Hook to fetch a single competition by ID
 // Uses immutable config for completed competitions
 export function useCompetition(id: number | null, status?: CompetitionStatus) {
+  // 检查认证状态
+  const hasToken = typeof window !== 'undefined' && localStorage.getItem('auth_token');
   const config = status === 'completed' ? immutableSwrConfig : staticSwrConfig;
   
+  const swrKey = (hasToken && id) ? API_ENDPOINTS.competitions.detail(id) : null;
+  
   const { data, error, mutate, isLoading } = useSWR<CompetitionDetailResponse>(
-    id ? API_ENDPOINTS.competitions.detail(id) : null,
+    swrKey,
     fetcher,
     config
   );
@@ -212,4 +228,72 @@ export async function removeAthleteFromCompetition(
       handleApiError(response, error, 'Failed to remove athlete');
     }
   });
+}
+
+// Public fetcher for display components (no authentication required)
+async function publicFetcher(url: string): Promise<any> {
+  return measureApiCall(`public:${url}`, async () => {
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: 'Request failed' }));
+        throw new Error(error.message || `HTTP ${response.status}`);
+      }
+      
+      return response.json();
+    } catch (error) {
+      // Handle network errors
+      if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        throw new Error('无法连接到服务器，请检查网络连接或稍后重试');
+      }
+      
+      throw error;
+    }
+  });
+}
+
+// Hook to fetch public competitions for display components (scoreboard, rankings)
+// No authentication required
+export function usePublicCompetitions(filters?: {
+  status?: CompetitionStatus;
+}) {
+  let url = API_ENDPOINTS.competitions.public;
+  
+  // Build query string for filters
+  const params = new URLSearchParams();
+  if (filters?.status) params.append('status', filters.status);
+  
+  if (params.toString()) {
+    url += `?${params.toString()}`;
+  }
+  
+  const { data, error, mutate, isLoading } = useSWR(
+    url,
+    publicFetcher,
+    {
+      // Use static config optimized for public data
+      dedupingInterval: 5000,
+      focusThrottleInterval: 10000,
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+      revalidateIfStale: true,
+      shouldRetryOnError: true,
+      errorRetryCount: 3,
+      errorRetryInterval: 5000,
+      keepPreviousData: true,
+    }
+  );
+  
+  return {
+    competitions: data?.data || [],
+    isLoading,
+    isError: error,
+    error,
+    refresh: mutate,
+  };
 }

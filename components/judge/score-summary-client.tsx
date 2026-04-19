@@ -3,16 +3,19 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { useUser } from '@/hooks/use-user';
+import { useJudgeSession } from '@/hooks/use-judge-session';
 import { useCompetitions } from '@/hooks/use-competitions';
 import { useAthletes } from '@/hooks/use-athletes';
 import { measurePageLoad } from '@/lib/performance-monitor';
-import { API_ENDPOINTS, getAuthHeaders } from '@/lib/api-config';
+import { API_ENDPOINTS } from '@/lib/api-config';
+import { judgeApiClient } from '@/lib/judge-api-client';
 import { GoogleAuthButton } from '@/components/shared/google-auth-button';
 import { SettingsModal } from '@/components/shared/settings-modal';
-import { Particles } from '@/components/shared/animated-background';
+import { JudgeSettingsModal } from '@/components/judge/judge-settings-modal';
+import { JudgeVideoBackground } from '@/components/shared/video-background';
 import { GlassCard } from '@/components/shared/animated-card';
 import { BackButton } from '@/components/shared/back-button';
+import { BilingualText } from '@/components/shared/bilingual-text';
 import type { Competition } from '@/interface/competition';
 import type { Athlete } from '@/interface/athlete';
 import type { ScoreWithDetails } from '@/interface/score';
@@ -22,7 +25,7 @@ export function ScoreSummaryClient() {
   const { t } = useTranslation();
 
   const router = useRouter();
-  const { user, isLoading: userLoading, isJudge, logout } = useUser();
+  const { currentSession, loadingSession } = useJudgeSession();
   const [selectedCompetition, setSelectedCompetition] = useState<Competition | null>(null);
   const [selectedAthlete, setSelectedAthlete] = useState<Athlete | null>(null);
   const [scores, setScores] = useState<ScoreWithDetails[]>([]);
@@ -32,19 +35,21 @@ export function ScoreSummaryClient() {
   const [showSettings, setShowSettings] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [locale, setLocale] = useState('zh');
+  
+  // State for competitions
+  const [competitions, setCompetitions] = useState<Competition[]>([]);
+  const [competitionsLoading, setCompetitionsLoading] = useState(true);
 
   // Refs for auto-scroll functionality
   const athletesSectionRef = useRef<HTMLDivElement>(null);
   const scoresSectionRef = useRef<HTMLDivElement>(null);
-
-  // Fetch competitions - include completed competitions for score summary
-  const { competitions, isLoading: competitionsLoading } = useCompetitions({
-    includeCompletedForSummary: true
-  });
   
   // Fetch athletes for selected competition
   const { athletes, isLoading: athletesLoading } = useAthletes(
-    selectedCompetition?.id || undefined
+    selectedCompetition?.id || undefined,
+    undefined,
+    false,
+    currentSession?.id.toString() // Pass judge session ID for device-based auth
   );
 
   // Measure page load performance
@@ -57,6 +62,34 @@ export function ScoreSummaryClient() {
     const pathLocale = window.location.pathname.split('/')[1];
     if (pathLocale) setLocale(pathLocale);
   }, []);
+  
+  // Fetch competitions using judgeApiClient
+  useEffect(() => {
+    const fetchCompetitions = async () => {
+      if (!currentSession) return;
+      
+      // Set the current session in judgeApiClient
+      judgeApiClient.setSession(currentSession);
+      
+      setCompetitionsLoading(true);
+      try {
+        const response = await judgeApiClient.getCompetitions({
+          include_completed_for_summary: true
+        });
+        
+        setCompetitions(response.data?.competitions || []);
+      } catch (error) {
+        console.error('Error fetching competitions:', error);
+        toast.error(error instanceof Error ? error.message : '加载比赛列表失败');
+        setCompetitions([]);
+      } finally {
+        setCompetitionsLoading(false);
+      }
+    };
+    
+    fetchCompetitions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSession]); // Only depend on currentSession, not t
 
   // Close user menu when clicking outside
   useEffect(() => {
@@ -71,16 +104,14 @@ export function ScoreSummaryClient() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showUserMenu]);
 
-  // Redirect if not authenticated or not a judge
+  // Redirect if no active judge session
   useEffect(() => {
-    if (!userLoading && !user) {
-      toast.error(t('auth.pleaseLogin'));
-      router.push(`/${locale}/sign-in`);
-    } else if (!userLoading && !isJudge) {
-      toast.error(t('auth.noJudgePermission'));
-      router.push(`/${locale}`);
+    if (!loadingSession && !currentSession) {
+      toast.error(t('judge.pleaseSelectJudgeIdentity'));
+      const targetLocale = locale || 'zh';
+      router.push(`/${targetLocale}/judge-landing`);
     }
-  }, [user, userLoading, isJudge, router, locale]);
+  }, [currentSession, loadingSession, router, locale, t]);
 
   // Fetch scores for selected athlete
   const fetchAthleteScores = async (athleteId: number) => {
@@ -88,32 +119,21 @@ export function ScoreSummaryClient() {
     
     setIsLoadingScores(true);
     try {
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
-        toast.error(t('auth.pleaseLogin'));
+      // Check if judge has active session
+      if (!judgeApiClient.hasActiveSession()) {
+        toast.error(t('judge.pleaseSelectJudgeIdentity'));
         return;
       }
 
-      const url = `${API_ENDPOINTS.scores.byAthlete(athleteId)}&competition_id=${selectedCompetition.id}`;
-      console.log('Fetching scores from:', url);
-
-      const response = await fetch(url, {
-        headers: getAuthHeaders(token),
+      const data = await judgeApiClient.getScores({
+        athlete_id: athleteId,
+        competition_id: selectedCompetition.id
       });
 
-      console.log('Response status:', response.status);
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-        console.error('API Error:', errorData);
-        throw new Error(errorData.message || `HTTP ${response.status}: Failed to fetch scores`);
-      }
-
-      const data = await response.json();
       console.log('📊 API Response:', data);
       
-      // Backend returns data directly as an array, not nested in a scores property
-      const scoresArray = Array.isArray(data.data) ? data.data : (data.data?.scores || []);
+      // Backend returns: { success: true, data: { scores: [...], count: N } }
+      const scoresArray = data.data?.scores || [];
       console.log('📊 Scores array length:', scoresArray.length);
       
       // 🔍 DEBUG: Check each score object
@@ -186,11 +206,13 @@ export function ScoreSummaryClient() {
 
   const handleLogout = async () => {
     try {
-      await logout();
-      toast.success(t('auth.logoutSuccess'));
+      // End judge session instead of logout
+      const targetLocale = locale || 'zh';
+      router.push(`/${targetLocale}/judge-landing`);
+      toast.success(t('judge.returnedToJudgeSelection'));
     } catch (error) {
-      console.error('Logout failed:', error);
-      toast.error(t('auth.logoutError'));
+      console.error('Navigation failed:', error);
+      toast.error(t('judge.navigationFailed'));
     }
   };
 
@@ -201,108 +223,32 @@ export function ScoreSummaryClient() {
       return;
     }
 
-    setIsExporting(true);
-    try {
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
-        toast.error(t('auth.pleaseLogin'));
-        return;
-      }
-
-      const response = await fetch(API_ENDPOINTS.competitions.exportExcel(selectedCompetition.id), {
-        method: 'POST',
-        headers: getAuthHeaders(token),
-        body: JSON.stringify({
-          export_type: exportType,
-          target_email: targetEmail || user?.email,
-          competition_id: selectedCompetition.id
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Export failed' }));
-        throw new Error(errorData.message || 'Export failed');
-      }
-
-      const data = await response.json();
-
-      switch (exportType) {
-        case 'download':
-          // Create download link with proper error handling
-          try {
-            if (!data.data.file_content) {
-              throw new Error(t('common.fileContentEmpty'));
-            }
-            
-            // Decode base64 content
-            const binaryString = atob(data.data.file_content);
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-              bytes[i] = binaryString.charCodeAt(i);
-            }
-            
-            const blob = new Blob([bytes], { 
-              type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
-            });
-            
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = data.data.filename || `${selectedCompetition.name}_${t('judge.scoreSummary')}.xlsx`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-            
-            toast.success(`${t('common.fileDownloadSuccess')} ${Math.round((data.data.size || 0) / 1024)}KB`);
-          } catch (downloadError) {
-            console.error('Download error:', downloadError);
-            toast.error(t('common.fileDownloadFailed'));
-          }
-          break;
-        
-        case 'google-drive':
-          toast.success(`${t('common.fileSavedTo')} ${targetEmail || user?.email}${t('common.googleDrive')}`);
-          break;
-        
-        case 'online-excel':
-          if (data.data.excel_url) {
-            window.open(data.data.excel_url, '_blank');
-            toast.success(t('common.onlineExcelCreated'));
-          }
-          break;
-      }
-
-      setShowExportModal(false);
-    } catch (error) {
-      console.error('Export error:', error);
-      toast.error(error instanceof Error ? error.message : t('common.exportFailed'));
-    } finally {
-      setIsExporting(false);
-    }
+    // Export functionality is not available for judge sessions
+    toast.error(t('judge.exportOnlyForAdmin'));
+    return;
   };
 
-  // Show loading state while checking authentication
-  if (userLoading) {
+  // Show loading state while checking session
+  if (loadingSession) {
     return (
-      <Particles>
+      <JudgeVideoBackground>
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
             <p className="text-gray-600 dark:text-gray-400">{t('common.loading')}</p>
           </div>
         </div>
-      </Particles>
+      </JudgeVideoBackground>
     );
   }
 
-  // Don't render if not authenticated or not a judge
-  if (!user || !isJudge) {
+  // Don't render if no active session
+  if (!currentSession) {
     return null;
   }
 
   return (
-    <Particles>
+    <JudgeVideoBackground>
       <div className="min-h-screen p-4 md:p-8">
         <div className="max-w-6xl mx-auto space-y-6">
         {/* Header with Back Button and User Menu */}
@@ -316,10 +262,19 @@ export function ScoreSummaryClient() {
 
             <div>
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                {t('judge.scoreSummaryTitle')}
+                <BilingualText 
+                  translationKey="judge.scoreSummaryTitle" 
+                  chineseSize="text-3xl" 
+                  englishSize="text-2xl"
+                  layout="vertical"
+                />
               </h1>
               <p className="text-gray-600 dark:text-gray-400 mt-1">
-                {t('judge.scoreSummaryDescription')}
+                <BilingualText 
+                  translationKey="judge.scoreSummaryDescription" 
+                  chineseSize="text-base" 
+                  englishSize="text-sm"
+                />
               </p>
             </div>
           </div>
@@ -332,15 +287,19 @@ export function ScoreSummaryClient() {
             >
               <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center shadow-md">
                 <span className="text-white text-sm font-medium">
-                  {user?.username?.charAt(0)?.toUpperCase() || 'J'}
+                  {currentSession?.judge_name?.charAt(0)?.toUpperCase() || 'J'}
                 </span>
               </div>
               <div className="text-left">
                 <p className="text-sm font-medium text-gray-900 dark:text-white">
-                  {user?.username || t('judge.judge')}
+                  {currentSession?.judge_name || t('judge.judge')}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {t('judge.judgeRole')}
+                  <BilingualText 
+                    translationKey="judge.judgeRole" 
+                    chineseSize="text-xs" 
+                    englishSize="text-xs"
+                  />
                 </p>
               </div>
               <svg 
@@ -365,10 +324,14 @@ export function ScoreSummaryClient() {
                 {/* User Info Header */}
                 <div className="px-4 py-3 border-b border-white/10 dark:border-gray-700/20">
                   <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {user?.username || t('judge.judge')}
+                    {currentSession?.judge_name || t('judge.judge')}
                   </p>
                   <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
-                    {user?.email}
+                    <BilingualText 
+                      translationKey="judge.judgeCodeLabel" 
+                      chineseSize="text-xs" 
+                      englishSize="text-xs"
+                    />: {currentSession?.judge_code}
                   </p>
                 </div>
                 
@@ -376,7 +339,8 @@ export function ScoreSummaryClient() {
                 <button
                   onClick={() => {
                     setShowUserMenu(false);
-                    router.push(`/${locale}/judge-dashboard`);
+                    const targetLocale = locale || 'zh';
+                    router.push(`/${targetLocale}/judge-dashboard`);
                   }}
                   className="w-full text-left px-4 py-2.5 text-sm text-gray-900 dark:text-white hover:bg-white/20 dark:hover:bg-gray-700/20 transition-all duration-200"
                 >
@@ -384,7 +348,11 @@ export function ScoreSummaryClient() {
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
                     </svg>
-                    {t('judge.judgeDashboard')}
+                    <BilingualText 
+                      translationKey="judge.judgeDashboard" 
+                      chineseSize="text-sm" 
+                      englishSize="text-xs"
+                    />
                   </div>
                 </button>
                 
@@ -401,11 +369,15 @@ export function ScoreSummaryClient() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
-                    {t('common.settings')}
+                    <BilingualText 
+                      translationKey="common.settings" 
+                      chineseSize="text-sm" 
+                      englishSize="text-xs"
+                    />
                   </div>
                 </button>
                 
-                {/* Logout Button */}
+                {/* End Session Button */}
                 <button
                   onClick={handleLogout}
                   className="w-full text-left px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-500/10 dark:hover:bg-red-500/20 transition-all duration-200 border-t border-white/10 dark:border-gray-700/20"
@@ -414,7 +386,11 @@ export function ScoreSummaryClient() {
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                     </svg>
-                    {t('common.logout')}
+                    <BilingualText 
+                      translationKey="judge.endSession" 
+                      chineseSize="text-sm" 
+                      englishSize="text-xs"
+                    />
                   </div>
                 </button>
               </div>
@@ -529,10 +505,19 @@ export function ScoreSummaryClient() {
               <div ref={athletesSectionRef}>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                  {t('judge.selectAthlete')}
+                  <BilingualText 
+                    translationKey="judge.selectAthlete" 
+                    chineseSize="text-xl" 
+                    englishSize="text-lg"
+                    layout="vertical"
+                  />
                 </h2>
                 <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {athletes.length} {t('judge.athletesCount')}
+                  {athletes.length} <BilingualText 
+                    translationKey="judge.athletesCount" 
+                    chineseSize="text-sm" 
+                    englishSize="text-xs"
+                  />
                 </span>
               </div>
               
@@ -614,8 +599,21 @@ export function ScoreSummaryClient() {
                   <svg className="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
-                  <p className="text-lg font-medium mb-2">{t('judge.selectAthleteFirst')}</p>
-                  <p className="text-sm">{t('judge.selectAthleteFromList')}</p>
+                  <div className="text-lg font-medium mb-2">
+                    <BilingualText 
+                      translationKey="judge.selectAthleteFirst" 
+                      chineseSize="text-lg" 
+                      englishSize="text-base"
+                      layout="vertical"
+                    />
+                  </div>
+                  <div className="text-sm">
+                    <BilingualText 
+                      translationKey="judge.selectAthleteFromList" 
+                      chineseSize="text-sm" 
+                      englishSize="text-xs"
+                    />
+                  </div>
                 </div>
               ) : isLoadingScores ? (
                 <div className="space-y-4">
@@ -656,7 +654,11 @@ export function ScoreSummaryClient() {
                               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                               </svg>
-                              {selectedAthlete.age}岁
+                              {selectedAthlete.age} <BilingualText 
+                                translationKey="athlete.age" 
+                                chineseSize="text-xs" 
+                                englishSize="text-xs"
+                              />
                             </span>
                           )}
                           {selectedAthlete.gender && (
@@ -682,11 +684,11 @@ export function ScoreSummaryClient() {
 
                   {/* Scores List */}
                   {scores.map((score, index) => (
-                    <GlassCard key={score.id} hoverEffect="none">
+                    <GlassCard key={`${score.id}-${score.judge_id || index}-${index}`} hoverEffect="none">
                       <div className="flex items-center justify-between mb-3">
                         <div>
                           <p className="font-medium text-gray-900 dark:text-white">
-                            {t('judge.judgeNumber')} #{index + 1}
+                            {score.judge_name || `${t('judge.judge')} #${index + 1}`}
                           </p>
                           <p className="text-sm text-gray-500 dark:text-gray-400">
                             {new Date(score.submitted_at).toLocaleString('zh-CN')}
@@ -698,7 +700,13 @@ export function ScoreSummaryClient() {
                         {/* 显示所有评分项，包括0分 - 处理字符串和数字类型 */}
                         {(score.action_difficulty !== null && score.action_difficulty !== undefined) && (
                           <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">{t('score.actionDifficulty')}:</span>
+                            <span className="text-gray-600 dark:text-gray-400">
+                              <BilingualText 
+                                translationKey="score.actionDifficulty" 
+                                chineseSize="text-sm" 
+                                englishSize="text-xs"
+                              />:
+                            </span>
                             <span className={`font-medium ${Number(score.action_difficulty) === 0 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-900 dark:text-white'}`}>
                               {Number(score.action_difficulty).toFixed(2)}
                             </span>
@@ -706,7 +714,13 @@ export function ScoreSummaryClient() {
                         )}
                         {(score.stage_artistry !== null && score.stage_artistry !== undefined) && (
                           <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">{t('score.stageArtistry')}:</span>
+                            <span className="text-gray-600 dark:text-gray-400">
+                              <BilingualText 
+                                translationKey="score.stageArtistry" 
+                                chineseSize="text-sm" 
+                                englishSize="text-xs"
+                              />:
+                            </span>
                             <span className={`font-medium ${Number(score.stage_artistry) === 0 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-900 dark:text-white'}`}>
                               {Number(score.stage_artistry).toFixed(2)}
                             </span>
@@ -714,7 +728,13 @@ export function ScoreSummaryClient() {
                         )}
                         {(score.action_creativity !== null && score.action_creativity !== undefined) && (
                           <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">{t('score.actionCreativity')}:</span>
+                            <span className="text-gray-600 dark:text-gray-400">
+                              <BilingualText 
+                                translationKey="score.actionCreativity" 
+                                chineseSize="text-sm" 
+                                englishSize="text-xs"
+                              />:
+                            </span>
                             <span className={`font-medium ${Number(score.action_creativity) === 0 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-900 dark:text-white'}`}>
                               {Number(score.action_creativity).toFixed(2)}
                             </span>
@@ -722,7 +742,13 @@ export function ScoreSummaryClient() {
                         )}
                         {(score.action_fluency !== null && score.action_fluency !== undefined) && (
                           <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">{t('score.actionFluency')}:</span>
+                            <span className="text-gray-600 dark:text-gray-400">
+                              <BilingualText 
+                                translationKey="score.actionFluency" 
+                                chineseSize="text-sm" 
+                                englishSize="text-xs"
+                              />:
+                            </span>
                             <span className={`font-medium ${Number(score.action_fluency) === 0 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-900 dark:text-white'}`}>
                               {Number(score.action_fluency).toFixed(2)}
                             </span>
@@ -730,7 +756,13 @@ export function ScoreSummaryClient() {
                         )}
                         {(score.costume_styling !== null && score.costume_styling !== undefined) && (
                           <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">{t('score.costumeStyling')}:</span>
+                            <span className="text-gray-600 dark:text-gray-400">
+                              <BilingualText 
+                                translationKey="score.costumeStyling" 
+                                chineseSize="text-sm" 
+                                englishSize="text-xs"
+                              />:
+                            </span>
                             <span className={`font-medium ${Number(score.costume_styling) === 0 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-900 dark:text-white'}`}>
                               {Number(score.costume_styling).toFixed(2)}
                             </span>
@@ -738,7 +770,13 @@ export function ScoreSummaryClient() {
                         )}
                         {(score.action_interaction !== null && score.action_interaction !== undefined) && (
                           <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">{t('score.actionInteraction')}:</span>
+                            <span className="text-gray-600 dark:text-gray-400">
+                              <BilingualText 
+                                translationKey="score.actionInteraction" 
+                                chineseSize="text-sm" 
+                                englishSize="text-xs"
+                              />:
+                            </span>
                             <span className={`font-medium ${Number(score.action_interaction) === 0 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-900 dark:text-white'}`}>
                               {Number(score.action_interaction).toFixed(2)}
                             </span>
@@ -755,15 +793,14 @@ export function ScoreSummaryClient() {
         )}
 
         {/* Settings Modal */}
-        <SettingsModal 
+        <JudgeSettingsModal 
           isOpen={showSettings} 
           onClose={() => setShowSettings(false)}
-          currentLocale={locale as 'zh' | 'en'}
         />
 
         {/* Export Modal */}
         {showExportModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 !mt-0">
             <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -853,7 +890,7 @@ export function ScoreSummaryClient() {
         )}
         </div>
       </div>
-    </Particles>
+    </JudgeVideoBackground>
   );
 }
 

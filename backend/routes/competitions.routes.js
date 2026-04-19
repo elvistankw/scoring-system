@@ -6,9 +6,16 @@ const express = require('express');
 const router = express.Router();
 const competitionsController = require('../controllers/competitions.controller');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { dualAuth } = require('../middleware/dual-auth');
 
-// All competition routes require authentication
-router.use(authenticate);
+// Public endpoints for display components (scoreboard, rankings)
+router.get('/public', competitionsController.getPublicCompetitions);
+
+// All other competition routes require authentication (JWT for admin, session for judge)
+router.use(dualAuth);
+
+// Judge scoring status endpoint - must be before /:id route to avoid conflict
+router.get('/judge-scoring-status', competitionsController.getJudgeScoringStatus);
 
 // Competition CRUD endpoints
 router.get('/', competitionsController.getAllCompetitions);

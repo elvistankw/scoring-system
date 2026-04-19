@@ -2,7 +2,6 @@
 // Requirements: 11.1, 11.4, 12.1, 12.2
 
 import type { Metadata } from 'next';
-import { useTranslation } from '@/i18n/use-dictionary';
 
 export const metadata: Metadata = {
   title: '实时比分大屏幕 | Scoring System',
@@ -15,8 +14,11 @@ export default function DisplayLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="dark min-h-screen bg-gray-900">
-      {children}
+    <div className="dark min-h-screen bg-gray-900 flex flex-col">
+      <main className="flex-1">
+        {children}
+      </main>
+      {/* No footer for display pages - full screen experience */}
     </div>
   );
 }

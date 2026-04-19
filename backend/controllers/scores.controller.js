@@ -259,7 +259,7 @@ const submitScore = async (req, res, next) => {
       athlete_name: athlete.name,
       athlete_number: athlete.athlete_number,
       judge_id: req.user.id,
-      judge_name: req.user.username,
+      judge_name: req.user.name || req.user.username || 'Unknown Judge',
       scores: {
         action_difficulty: savedScore.action_difficulty,
         stage_artistry: savedScore.stage_artistry,
@@ -320,7 +320,7 @@ const submitScore = async (req, res, next) => {
         athlete_id: athlete.id,
         athlete_name: athlete.name,
         judge_id: req.user.id,
-        judge_name: req.user.username,
+        judge_name: req.user.name || req.user.username || 'Unknown Judge',
         scores: realtimeData.scores,
         submitted_at: savedScore.submitted_at
       }
@@ -348,18 +348,20 @@ const getScores = async (req, res, next) => {
     const { competition_id, athlete_id, judge_id } = req.query;
 
     // Build dynamic query based on provided filters
+    // Join with both users and judge_sessions to support both admin and judge logins
     let query = `
       SELECT 
         s.*,
         a.name as athlete_name,
         a.athlete_number,
-        u.username as judge_name,
+        COALESCE(u.username, js.judge_name) as judge_name,
         c.competition_type,
         c.name as competition_name,
         c.region
       FROM scores s
       INNER JOIN athletes a ON s.athlete_id = a.id
-      INNER JOIN users u ON s.judge_id = u.id
+      LEFT JOIN users u ON s.judge_id = u.id
+      LEFT JOIN judge_sessions js ON s.judge_id = js.judge_id
       INNER JOIN competitions c ON s.competition_id = c.id
       WHERE 1=1
     `;
@@ -413,17 +415,19 @@ const getScoresByCompetition = async (req, res, next) => {
     const { competitionId } = req.params;
     const { athlete_id, judge_id } = req.query;
 
+    // Join with both users and judge_sessions to support both admin and judge logins
     let query = `
       SELECT 
         s.*,
         a.name as athlete_name,
         a.athlete_number,
-        u.username as judge_name,
+        COALESCE(u.username, js.judge_name) as judge_name,
         c.competition_type,
         c.name as competition_name
       FROM scores s
       INNER JOIN athletes a ON s.athlete_id = a.id
-      INNER JOIN users u ON s.judge_id = u.id
+      LEFT JOIN users u ON s.judge_id = u.id
+      LEFT JOIN judge_sessions js ON s.judge_id = js.judge_id
       INNER JOIN competitions c ON s.competition_id = c.id
       WHERE s.competition_id = $1
     `;
@@ -457,7 +461,7 @@ const getScoresByCompetition = async (req, res, next) => {
     console.error('❌ Get scores error:', err);
     next(err);
   }
-};
+};;
 
 /**
  * Get latest score for a competition (from Redis cache or database)
@@ -648,14 +652,704 @@ const getRankings = async (req, res, next) => {
   }
 };
 
+/**
+ * Partial score update - save individual score dimensions
+ * Requirements: Support partial scoring and individual field updates
+ * 
+ * POST /api/scores/partial-update
+ * Body: {
+ *   competition_id: number,
+ *   athlete_id: number,
+ *   field: string,
+ *   value: number | null
+ * }
+ */
+const partialScoreUpdate = async (req, res, next) => {
+  const client = await db.getClient();
+  
+  try {
+    const { competition_id, athlete_id, field, value } = req.body;
+    const judge_id = req.user.id;
+
+    console.log('\n🔍 DEBUG - Partial Score Update Request:');
+    console.log('Judge ID:', judge_id);
+    console.log('Competition ID:', competition_id);
+    console.log('Athlete ID:', athlete_id);
+    console.log('Field:', field);
+    console.log('Value:', value);
+
+    // 1. Validate request body
+    if (!competition_id || !athlete_id || !field) {
+      return next(new AppError('Missing required fields: competition_id, athlete_id, field', 400));
+    }
+
+    // 2. Validate field name
+    const validFields = [
+      'action_difficulty', 'stage_artistry', 'action_creativity', 
+      'action_fluency', 'costume_styling', 'action_interaction'
+    ];
+    
+    if (!validFields.includes(field)) {
+      return next(new AppError(`Invalid field: ${field}`, 400));
+    }
+
+    // 3. Validate value range (0-30, or null)
+    if (value !== null && value !== undefined) {
+      const numValue = parseFloat(value);
+      if (isNaN(numValue) || numValue < 0 || numValue > 30) {
+        return next(new AppError(`Invalid value: ${value}. Must be between 0-30 or null`, 400));
+      }
+    }
+
+    // 4. Get competition details
+    const competitionResult = await client.query(
+      'SELECT id, competition_type, name, status FROM competitions WHERE id = $1',
+      [competition_id]
+    );
+
+    if (competitionResult.rows.length === 0) {
+      return next(new AppError('Competition not found', 404));
+    }
+
+    const competition = competitionResult.rows[0];
+
+    if (competition.status !== 'active') {
+      return next(new AppError(`Cannot submit scores for ${competition.status} competition`, 400));
+    }
+
+    // 5. Validate athlete exists and is registered
+    const athleteResult = await client.query(
+      `SELECT a.id, a.name, a.athlete_number 
+       FROM athletes a
+       INNER JOIN competition_athletes ca ON a.id = ca.athlete_id
+       WHERE a.id = $1 AND ca.competition_id = $2`,
+      [athlete_id, competition_id]
+    );
+
+    if (athleteResult.rows.length === 0) {
+      return next(new AppError('Athlete not found or not registered for this competition', 404));
+    }
+
+    const athlete = athleteResult.rows[0];
+
+    // 6. Begin transaction
+    await client.query('BEGIN');
+
+    // 7. Check if score record exists
+    const existingScoreResult = await client.query(
+      'SELECT * FROM scores WHERE competition_id = $1 AND athlete_id = $2 AND judge_id = $3',
+      [competition_id, athlete_id, judge_id]
+    );
+
+    let savedScore;
+
+    if (existingScoreResult.rows.length > 0) {
+      // Update existing record - only update the specific field
+      const updateQuery = `
+        UPDATE scores 
+        SET ${field} = $1, updated_at = NOW()
+        WHERE competition_id = $2 AND athlete_id = $3 AND judge_id = $4
+        RETURNING *
+      `;
+
+    console.log('🔍 Update Query:', updateQuery);
+    console.log('🔍 Values:', values);
+      
+      const updateResult = await client.query(updateQuery, [
+        value, competition_id, athlete_id, judge_id
+      ]);
+      
+      savedScore = updateResult.rows[0];
+      console.log(`✅ Updated existing score record, field: ${field} = ${value}`);
+    } else {
+      // Create new record with only this field
+      const insertQuery = `
+        INSERT INTO scores (
+          competition_id,
+          athlete_id,
+          judge_id,
+          action_difficulty,
+          stage_artistry,
+          action_creativity,
+          action_fluency,
+          costume_styling,
+          action_interaction,
+          submitted_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+        RETURNING *
+      `;
+
+      // Set all fields to null except the one being updated
+      const fieldValues = {
+        action_difficulty: null,
+        stage_artistry: null,
+        action_creativity: null,
+        action_fluency: null,
+        costume_styling: null,
+        action_interaction: null
+      };
+      fieldValues[field] = value;
+
+      const insertValues = [
+        competition_id,
+        athlete_id,
+        judge_id,
+        fieldValues.action_difficulty,
+        fieldValues.stage_artistry,
+        fieldValues.action_creativity,
+        fieldValues.action_fluency,
+        fieldValues.costume_styling,
+        fieldValues.action_interaction
+      ];
+
+      const insertResult = await client.query(insertQuery, insertValues);
+      savedScore = insertResult.rows[0];
+      console.log(`✅ Created new score record, field: ${field} = ${value}`);
+    }
+
+    // 8. Commit transaction
+    await client.query('COMMIT');
+
+    // 9. Update Redis cache (partial update)
+    try {
+      const cacheKey = `score:${competition_id}:${athlete_id}:${judge_id}`;
+      
+      // Get existing cache or create new
+      let cachedScore = await redis.get(cacheKey);
+      if (cachedScore) {
+        cachedScore = JSON.parse(cachedScore);
+      } else {
+        cachedScore = {
+          competition_id,
+          athlete_id,
+          judge_id,
+          competition_name: competition.name,
+          athlete_name: athlete.name,
+          athlete_number: athlete.athlete_number,
+          scores: {}
+        };
+      }
+
+      // Update only the specific field
+      cachedScore.scores[field] = value;
+      cachedScore.updated_at = savedScore.submitted_at;
+
+      // Cache for 1 hour
+      await redis.setex(cacheKey, 3600, JSON.stringify(cachedScore));
+      
+      // Invalidate rankings cache
+      await redisHelpers.invalidateScoreCaches(competition_id);
+      
+      console.log(`✅ Redis cache updated for field: ${field}`);
+    } catch (redisError) {
+      console.error('⚠️  Redis cache update failed:', redisError.message);
+    }
+
+    // 10. Broadcast partial update via WebSocket
+    try {
+      const io = req.app.get('io');
+      if (io) {
+        const roomName = `competition:${competition_id}`;
+        
+        io.to(roomName).emit('partial-score-update', {
+          type: 'PARTIAL_SCORE_UPDATE',
+          data: {
+            competition_id,
+            athlete_id,
+            judge_id,
+            field,
+            value,
+            athlete_name: athlete.name,
+            athlete_number: athlete.athlete_number,
+            judge_name: req.user.name || req.user.username || 'Unknown Judge',
+            timestamp: savedScore.submitted_at
+          }
+        });
+      }
+    } catch (wsError) {
+      console.error('⚠️  WebSocket broadcast failed:', wsError.message);
+    }
+
+    // 11. Return success response
+    res.status(200).json({
+      success: true,
+      message: `Field ${field} updated successfully`,
+      data: {
+        field,
+        value,
+        score: savedScore,
+        athlete: {
+          id: athlete.id,
+          name: athlete.name,
+          athlete_number: athlete.athlete_number
+        }
+      }
+    });
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('❌ Partial score update error:', error);
+    next(error);
+  } finally {
+    client.release();
+  }
+};
+
+/**
+ * Batch submit scores for multiple athletes in a competition
+ * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 4.1, 4.2, 4.3, 4.4, 4.5, 5.1, 5.2, 5.3, 5.4, 5.5, 6.1
+ * 
+ * POST /api/scores/batch-submit
+ * Body: {
+ *   submissions: [{
+ *     competition_id: number,
+ *     athlete_id: number,
+ *     scores: { ... }
+ *   }]
+ * }
+ */
+const batchSubmitScores = async (req, res, next) => {
+  const client = await db.getClient();
+  
+  try {
+    const { submissions } = req.body;
+    const judge_id = req.user.id;
+
+    console.log('\n🔍 DEBUG - Batch Score Submission Request:');
+    console.log('Judge ID:', judge_id);
+    console.log('Number of submissions:', submissions?.length);
+
+    // 1. Validate request body
+    if (!submissions || !Array.isArray(submissions) || submissions.length === 0) {
+      return next(new AppError('Missing or invalid submissions array', 400));
+    }
+
+    // 2. Get all unique competition IDs
+    const competitionIds = [...new Set(submissions.map(s => s.competition_id))];
+    
+    // 3. Validate all competitions exist and are active
+    const competitionsResult = await client.query(
+      'SELECT id, competition_type, name, status FROM competitions WHERE id = ANY($1)',
+      [competitionIds]
+    );
+
+    if (competitionsResult.rows.length !== competitionIds.length) {
+      return next(new AppError('One or more competitions not found', 404));
+    }
+
+    const competitions = new Map(competitionsResult.rows.map(c => [c.id, c]));
+
+    // Check all competitions are active
+    for (const competition of competitions.values()) {
+      if (competition.status !== 'active') {
+        return next(new AppError(`Cannot submit scores for ${competition.status} competition: ${competition.name}`, 400));
+      }
+    }
+
+    // 4. Get all unique athlete IDs
+    const athleteIds = [...new Set(submissions.map(s => s.athlete_id))];
+    
+    // 5. Validate all athletes exist and are registered
+    const athletesResult = await client.query(
+      `SELECT a.id, a.name, a.athlete_number, ca.competition_id
+       FROM athletes a
+       INNER JOIN competition_athletes ca ON a.id = ca.athlete_id
+       WHERE a.id = ANY($1) AND ca.competition_id = ANY($2)`,
+      [athleteIds, competitionIds]
+    );
+
+    const athleteCompetitions = new Map();
+    athletesResult.rows.forEach(row => {
+      const key = `${row.id}_${row.competition_id}`;
+      athleteCompetitions.set(key, row);
+    });
+
+    // 6. Validate each submission
+    const validatedSubmissions = [];
+    for (const submission of submissions) {
+      const { competition_id, athlete_id, scores } = submission;
+
+      // Check competition exists
+      const competition = competitions.get(competition_id);
+      if (!competition) {
+        return next(new AppError(`Competition ${competition_id} not found`, 404));
+      }
+
+      // Check athlete is registered for this competition
+      const athleteKey = `${athlete_id}_${competition_id}`;
+      const athlete = athleteCompetitions.get(athleteKey);
+      if (!athlete) {
+        return next(new AppError(`Athlete ${athlete_id} not registered for competition ${competition_id}`, 404));
+      }
+
+      // Validate score fields
+      const fieldValidation = validateScoreFields(competition.competition_type, scores);
+      if (!fieldValidation.valid) {
+        return next(new AppError(`Score validation failed for athlete ${athlete_id}: ${fieldValidation.errors.join(', ')}`, 400));
+      }
+
+      // Validate score ranges
+      const rangeValidation = validateScoreRange(scores);
+      if (!rangeValidation.valid) {
+        return next(new AppError(`Score range validation failed for athlete ${athlete_id}: ${rangeValidation.errors.join(', ')}`, 400));
+      }
+
+      validatedSubmissions.push({
+        competition_id,
+        athlete_id,
+        scores,
+        competition,
+        athlete
+      });
+    }
+
+    // 7. Check for existing scores and prepare for upsert
+    const existingScoresResult = await client.query(
+      `SELECT competition_id, athlete_id, id
+       FROM scores 
+       WHERE competition_id = ANY($1) 
+       AND athlete_id = ANY($2) 
+       AND judge_id = $3`,
+      [competitionIds, athleteIds, judge_id]
+    );
+
+    const existingScoresMap = new Map();
+    existingScoresResult.rows.forEach(row => {
+      const key = `${row.competition_id}_${row.athlete_id}`;
+      existingScoresMap.set(key, row.id);
+    });
+
+    console.log(`📊 Found ${existingScoresResult.rows.length} existing score records`);
+
+    // 8. Begin transaction
+    await client.query('BEGIN');
+
+    const insertedScores = [];
+    const realtimeUpdates = [];
+
+    // 9. Upsert all scores (insert or update existing)
+    for (const submission of validatedSubmissions) {
+      const { competition_id, athlete_id, scores, competition, athlete } = submission;
+
+      // Check if score already exists
+      const scoreKey = `${competition_id}_${athlete_id}`;
+      const existingScoreId = existingScoresMap.get(scoreKey);
+
+      let savedScore;
+
+      if (existingScoreId) {
+        // Update existing score and mark as submitted
+        console.log(`🔄 Updating existing score for athlete ${athlete_id} in competition ${competition_id}`);
+        
+        const updateQuery = `
+          UPDATE scores SET
+            action_difficulty = $1,
+            stage_artistry = $2,
+            action_creativity = $3,
+            action_fluency = $4,
+            costume_styling = $5,
+            action_interaction = $6,
+            submitted_at = NOW(),
+            updated_at = NOW()
+          WHERE id = $7
+          RETURNING *
+        `;
+
+    console.log('🔍 Update Query:', updateQuery);
+    console.log('🔍 Values:', values);
+
+        const updateValues = [
+          scores.action_difficulty !== undefined ? scores.action_difficulty : null,
+          scores.stage_artistry !== undefined ? scores.stage_artistry : null,
+          scores.action_creativity !== undefined ? scores.action_creativity : null,
+          scores.action_fluency !== undefined ? scores.action_fluency : null,
+          scores.costume_styling !== undefined ? scores.costume_styling : null,
+          scores.action_interaction !== undefined ? scores.action_interaction : null,
+          existingScoreId
+        ];
+
+        const updateResult = await client.query(updateQuery, updateValues);
+        savedScore = updateResult.rows[0];
+      } else {
+        // Insert new score
+        console.log(`➕ Inserting new score for athlete ${athlete_id} in competition ${competition_id}`);
+        
+        const insertQuery = `
+          INSERT INTO scores (
+            competition_id,
+            athlete_id,
+            judge_id,
+            action_difficulty,
+            stage_artistry,
+            action_creativity,
+            action_fluency,
+            costume_styling,
+            action_interaction,
+            submitted_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+          RETURNING *
+        `;
+
+        const insertValues = [
+          competition_id,
+          athlete_id,
+          judge_id,
+          scores.action_difficulty !== undefined ? scores.action_difficulty : null,
+          scores.stage_artistry !== undefined ? scores.stage_artistry : null,
+          scores.action_creativity !== undefined ? scores.action_creativity : null,
+          scores.action_fluency !== undefined ? scores.action_fluency : null,
+          scores.costume_styling !== undefined ? scores.costume_styling : null,
+          scores.action_interaction !== undefined ? scores.action_interaction : null
+        ];
+
+        const insertResult = await client.query(insertQuery, insertValues);
+        savedScore = insertResult.rows[0];
+      }
+
+      insertedScores.push(savedScore);
+
+      // Prepare real-time update data
+      realtimeUpdates.push({
+        competition_id: competition.id,
+        competition_name: competition.name,
+        competition_type: competition.competition_type,
+        athlete_id: athlete.id,
+        athlete_name: athlete.name,
+        athlete_number: athlete.athlete_number,
+        judge_id: req.user.id,
+        judge_name: req.user.name || req.user.username || 'Unknown Judge',
+        scores: {
+          action_difficulty: savedScore.action_difficulty,
+          stage_artistry: savedScore.stage_artistry,
+          action_creativity: savedScore.action_creativity,
+          action_fluency: savedScore.action_fluency,
+          costume_styling: savedScore.costume_styling,
+          action_interaction: savedScore.action_interaction
+        },
+        timestamp: savedScore.submitted_at
+      });
+    }
+
+    // 10. Commit transaction
+    await client.query('COMMIT');
+
+    // 11. Update Redis cache and broadcast WebSocket updates
+    try {
+      for (const update of realtimeUpdates) {
+        // Update latest score cache
+        await redisHelpers.setLatestScore(update.competition_id, update, 3600);
+        
+        // Invalidate rankings cache
+        await redisHelpers.invalidateScoreCaches(update.competition_id);
+        
+        // Broadcast via WebSocket
+        const io = req.app.get('io');
+        if (io) {
+          const roomName = `competition:${update.competition_id}`;
+          io.to(roomName).emit('score-update', {
+            type: 'SCORE_UPDATED',
+            data: update,
+            timestamp: update.timestamp
+          });
+        }
+      }
+      
+      console.log(`✅ Batch submission: ${insertedScores.length} scores saved and broadcasted`);
+    } catch (cacheError) {
+      console.error('⚠️  Cache/WebSocket update failed (continuing):', cacheError.message);
+    }
+
+    // 12. Return success response
+    res.status(201).json({
+      success: true,
+      message: `Successfully submitted ${insertedScores.length} scores`,
+      data: {
+        count: insertedScores.length,
+        scores: insertedScores
+      }
+    });
+
+  } catch (error) {
+    // Rollback transaction on error
+    await client.query('ROLLBACK');
+    console.error('❌ Batch score submission error:', error);
+    next(error);
+  } finally {
+    client.release();
+  }
+};
+
+/**
+ * Update a score (Admin only)
+ * PUT /api/scores/:id
+ * Requirements: Admin score management
+ */
+const updateScore = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const scoreData = req.body;
+
+    // Get the score to check competition type
+    const scoreResult = await db.query(
+      `SELECT s.*, c.competition_type 
+       FROM scores s 
+       INNER JOIN competitions c ON s.competition_id = c.id 
+       WHERE s.id = $1`,
+      [id]
+    );
+
+    if (scoreResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Score not found'
+      });
+    }
+
+    const existingScore = scoreResult.rows[0];
+    const competitionType = existingScore.competition_type;
+
+    // Validate score range
+    const rangeValidation = validateScoreRange(scoreData);
+    if (!rangeValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid score values',
+        errors: rangeValidation.errors
+      });
+    }
+
+    // Build update query dynamically
+    const updateFields = [];
+    const values = [];
+    let paramIndex = 1;
+
+    const allowedFields = ['action_difficulty', 'stage_artistry', 'action_creativity', 
+                          'action_fluency', 'costume_styling', 'action_interaction'];
+
+    for (const field of allowedFields) {
+      if (scoreData.hasOwnProperty(field)) {
+        updateFields.push(`${field} = $${paramIndex}`);
+        values.push(scoreData[field]);
+        paramIndex++;
+      }
+    }
+
+    if (updateFields.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No valid fields to update'
+      });
+    }
+
+    // Add updated_at
+    updateFields.push(`updated_at = NOW()`);
+    values.push(id); // Add id as last parameter
+
+    const updateQuery = `
+      UPDATE scores
+      SET ${updateFields.join(', ')}
+      WHERE id = $${paramIndex}
+      RETURNING *
+    `;
+
+    console.log('🔍 Update Query:', updateQuery);
+    console.log('🔍 Values:', values);
+
+    const result = await db.query(updateQuery, values);
+
+    console.log('✅ Score updated successfully:', result.rows[0].id);
+
+    // Clear cache for this competition
+    try {
+      if (redis) {
+        const cacheKey = `scores:competition:${existingScore.competition_id}`;
+        await redis.del(cacheKey);
+        console.log('✅ Cache cleared for competition:', existingScore.competition_id);
+      }
+    } catch (cacheError) {
+      console.error('⚠️  Failed to clear cache (continuing anyway):', cacheError.message);
+      // Don't fail the request if cache clearing fails
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Score updated successfully',
+      data: {
+        score: result.rows[0]
+      }
+    });
+
+  } catch (err) {
+    console.error('❌ Update score error:', err);
+    next(err);
+  }
+};
+
+/**
+ * Delete a score (Admin only)
+ * DELETE /api/scores/:id
+ * Requirements: Admin score management
+ */
+const deleteScore = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    // Get the score to get competition_id for cache clearing
+    const scoreResult = await db.query(
+      'SELECT competition_id FROM scores WHERE id = $1',
+      [id]
+    );
+
+    if (scoreResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Score not found'
+      });
+    }
+
+    const competitionId = scoreResult.rows[0].competition_id;
+
+    // Delete the score
+    await db.query('DELETE FROM scores WHERE id = $1', [id]);
+
+    // Clear cache for this competition
+    try {
+      if (redis) {
+        const cacheKey = `scores:competition:${competitionId}`;
+        await redis.del(cacheKey);
+        console.log('✅ Cache cleared for competition:', competitionId);
+      }
+    } catch (cacheError) {
+      console.error('⚠️  Failed to clear cache (continuing anyway):', cacheError.message);
+      // Don't fail the request if cache clearing fails
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Score deleted successfully'
+    });
+
+  } catch (err) {
+    console.error('❌ Delete score error:', err);
+    next(err);
+  }
+};
+
 module.exports = {
   submitScore,
   getScores,
   getScoresByCompetition,
   getLatestScore,
   getRankings,
+  batchSubmitScores,
+  partialScoreUpdate,
+  updateScore,
+  deleteScore,
   // Export validation functions for testing
   validateScoreRange,
   validateScoreFields,
   COMPETITION_TYPE_RULES
 };
+
+
+

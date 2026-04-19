@@ -9,21 +9,30 @@ class GoogleService {
                                process.env.GOOGLE_REDIRECT_URI;
     
     if (process.env.NODE_ENV === 'development' || hasRequiredEnvVars) {
-      this.oauth2Client = new OAuth2Client(
-        process.env.GOOGLE_CLIENT_ID,
-        process.env.GOOGLE_CLIENT_SECRET,
-        process.env.GOOGLE_REDIRECT_URI
-      );
-      
-      this.drive = google.drive({ version: 'v3' });
-      this.sheets = google.sheets({ version: 'v4' });
-      this.isEnabled = true;
+      try {
+        this.oauth2Client = new OAuth2Client(
+          process.env.GOOGLE_CLIENT_ID,
+          process.env.GOOGLE_CLIENT_SECRET,
+          process.env.GOOGLE_REDIRECT_URI
+        );
+        
+        this.drive = google.drive({ version: 'v3' });
+        this.sheets = google.sheets({ version: 'v4' });
+        this.isEnabled = true;
+        console.log('✅ Google OAuth service initialized');
+      } catch (error) {
+        console.error('❌ Google OAuth service initialization failed:', error.message);
+        this.oauth2Client = null;
+        this.drive = null;
+        this.sheets = null;
+        this.isEnabled = false;
+      }
     } else {
       this.oauth2Client = null;
       this.drive = null;
       this.sheets = null;
       this.isEnabled = false;
-      console.log('Google OAuth disabled: Missing required environment variables');
+      console.log('⚠️ Google OAuth disabled: Missing required environment variables');
     }
   }
 

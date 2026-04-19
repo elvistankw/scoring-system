@@ -5,7 +5,7 @@ const { authenticate, requireRole } = require('../middleware/auth');
 const db = require('../db');
 
 // 导出比赛数据到 Google Sheets
-router.post('/export/:competitionId', authenticate, requireRole(['admin', 'judge']), async (req, res, next) => {
+router.post('/export/:competitionId', authenticate, requireRole('admin', 'judge'), async (req, res, next) => {
   try {
     const { competitionId } = req.params;
 

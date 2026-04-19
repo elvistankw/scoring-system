@@ -3,6 +3,17 @@
 
 import { SWRConfiguration } from 'swr';
 import { authClient } from './auth-client';
+import { getJudgeSessionHeaders } from './api-config';
+
+// Import auth debug utilities in development
+let authDebug: any = null;
+if (process.env.NODE_ENV === 'development') {
+  import('./auth-debug').then(module => {
+    authDebug = module.authDebug;
+  }).catch(() => {
+    // Ignore import errors in production builds
+  });
+}
 
 // Default fetcher with authentication
 export const fetcher = async (url: string) => {
@@ -23,6 +34,41 @@ export const fetcher = async (url: string) => {
     authClient.clearAuth();
     throw new Error('Unauthorized - please login again');
   }
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Request failed' }));
+    throw new Error(error.message || `HTTP ${response.status}`);
+  }
+
+  return response.json();
+};
+
+// Judge session fetcher (for device-based judge authentication)
+export const judgeFetcher = (sessionId: string, deviceId: string) => async (url: string) => {
+  const headers = getJudgeSessionHeaders(sessionId, deviceId);
+
+  const response = await fetch(url, { headers });
+
+  // Handle authentication errors
+  if (response.status === 401) {
+    throw new Error('Judge session expired - please select judge identity again');
+  }
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Request failed' }));
+    throw new Error(error.message || `HTTP ${response.status}`);
+  }
+
+  return response.json();
+};
+
+// Public fetcher (no authentication required)
+export const publicFetcher = async (url: string) => {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+
+  const response = await fetch(url, { headers });
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Request failed' }));
@@ -78,7 +124,29 @@ export const swrConfig: SWRConfiguration = {
   keepPreviousData: true, // Keep previous data while revalidating
   
   onError: (error) => {
-    console.error('SWR Error:', error);
+    // Handle authentication errors with redirect
+    if (error.message?.includes('Unauthorized') || error.message?.includes('please login again')) {
+      console.warn('Authentication expired, redirecting to login...');
+      
+      // Try to fix auth issues in development
+      if (process.env.NODE_ENV === 'development' && authDebug) {
+        authDebug.logAuthState();
+        authDebug.fixAuthIssues();
+      }
+      
+      // Redirect to login page if we're in the browser
+      if (typeof window !== 'undefined') {
+        // Use a small delay to prevent multiple redirects
+        setTimeout(() => {
+          window.location.href = '/sign-in';
+        }, 100);
+      }
+    } else if (error.message?.includes('Session expired')) {
+      // Don't log session expired errors as they're expected when tokens expire
+      console.warn('Session expired, redirecting to login...');
+    } else {
+      console.error('SWR Error:', error);
+    }
   },
 };
 
@@ -111,4 +179,30 @@ export const immutableSwrConfig: SWRConfiguration = {
   revalidateOnReconnect: false,
   revalidateIfStale: false,
   dedupingInterval: Infinity, // Never dedupe
+};
+
+// Configuration for public data (no authentication required)
+// Used for display components like scoreboard and rankings
+export const publicSwrConfig: SWRConfiguration = {
+  fetcher: publicFetcher,
+  // Cache optimization
+  dedupingInterval: 2000, // Dedupe requests within 2s
+  focusThrottleInterval: 5000, // Throttle revalidation on focus
+  
+  // Revalidation strategy
+  revalidateOnFocus: false, // Disable for better performance
+  revalidateOnReconnect: true, // Revalidate on network reconnect
+  revalidateIfStale: true, // Only revalidate if data is stale
+  
+  // Error handling
+  shouldRetryOnError: true,
+  errorRetryCount: 3,
+  errorRetryInterval: 5000,
+  
+  // Performance optimization
+  keepPreviousData: true, // Keep previous data while revalidating
+  
+  onError: (error) => {
+    console.error('Public API Error:', error);
+  },
 };

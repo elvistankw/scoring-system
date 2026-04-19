@@ -34,8 +34,10 @@ export function SignInClient({ locale }: SignInClientProps) {
     if (!isCheckingAuth && user) {
       if (user.role === 'admin') {
         router.replace(`/${locale}/admin-dashboard`);
-      } else if (user.role === 'judge') {
-        router.replace(`/${locale}/judge-dashboard`);
+      } else {
+        // Non-admin users should not access login page
+        toast.error('Access denied. Admin access only.');
+        router.replace(`/${locale}`);
       }
     }
   }, [user, isCheckingAuth, router, locale]);
@@ -58,10 +60,9 @@ export function SignInClient({ locale }: SignInClientProps) {
       // Redirect based on role with locale using replace to prevent back navigation
       if (response.user.role === 'admin') {
         router.replace(`/${locale}/admin-dashboard`);
-      } else if (response.user.role === 'judge') {
-        router.replace(`/${locale}/judge-dashboard`);
       } else {
-        toast.error(t('auth.signInError'));
+        toast.error('Access denied. Admin access only.');
+        router.replace(`/${locale}`);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : t('auth.signInError');
@@ -102,6 +103,20 @@ export function SignInClient({ locale }: SignInClientProps) {
 
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8">
           <AuthForm mode="sign-in" onSubmit={handleSignIn} isLoading={isLoading} />
+
+          {/* Clear Authentication Button - helpful for auth issues */}
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              onClick={() => {
+                authClient.clearAuth();
+                toast.success('Authentication data cleared. Please try signing in again.');
+              }}
+              className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 underline"
+            >
+              Clear saved authentication data
+            </button>
+          </div>
 
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600 dark:text-gray-400">

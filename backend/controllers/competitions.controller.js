@@ -13,6 +13,78 @@ const SCORE_CACHE_TTL = 3600; // 1 hour for scores
 const LEADERBOARD_CACHE_TTL = 7200; // 2 hours for leaderboard
 
 /**
+ * Get public competitions for display components (scoreboard, rankings)
+ * GET /api/competitions/public?status=active
+ * No authentication required - only returns basic competition info
+ */
+const getPublicCompetitions = async (req, res, next) => {
+  try {
+    const { status = 'active' } = req.query;
+    
+    // Build cache key for public competitions
+    const cacheKey = `public_competitions:${status}`;
+    
+    // Try to get from cache first
+    try {
+      const cachedData = await redisHelpers.getCachedCompetitionList(cacheKey);
+      if (cachedData) {
+        console.log(`✅ Cache HIT for public competitions: ${cacheKey}`);
+        return res.status(200).json({
+          status: 'success',
+          cached: true,
+          data: cachedData
+        });
+      }
+      console.log(`⚠️  Cache MISS for public competitions: ${cacheKey}`);
+    } catch (redisError) {
+      console.warn('Redis read failed, falling back to database:', redisError.message);
+    }
+
+    // Build query for public competitions - only basic info
+    let query = `
+      SELECT c.id, c.name, c.region, c.competition_type, c.division, 
+             c.start_date, c.end_date, c.status,
+             COALESCE((SELECT COUNT(*) FROM competition_athletes ca WHERE ca.competition_id = c.id), 0) as athlete_count
+      FROM competitions c
+      WHERE 1=1
+    `;
+    
+    const params = [];
+    let paramIndex = 1;
+
+    // Add status filter
+    if (status && status !== 'all') {
+      query += ` AND c.status = $${paramIndex}`;
+      params.push(status);
+      paramIndex++;
+    }
+
+    query += ` ORDER BY c.start_date DESC`;
+
+    const result = await db.query(query, params);
+    const competitions = result.rows;
+
+    // Cache the result
+    try {
+      await redisHelpers.setCachedCompetitionList(cacheKey, competitions, COMPETITION_CACHE_TTL);
+      console.log(`✅ Cached public competitions list: ${cacheKey}`);
+    } catch (redisError) {
+      console.warn('Failed to cache public competitions:', redisError.message);
+    }
+
+    res.status(200).json({
+      status: 'success',
+      cached: false,
+      data: competitions
+    });
+
+  } catch (error) {
+    console.error('Error fetching public competitions:', error);
+    next(new AppError('Failed to fetch competitions', 500));
+  }
+};
+
+/**
  * Get all competitions with optional filtering
  * GET /api/competitions?status=active&region=华东赛区&type=individual
  * Requirements: 2.1, 2.2, 2.3, 6.2, 8.1, 8.2, 8.3, 10.5
@@ -1031,7 +1103,69 @@ const exportCompetitionToExcel = async (req, res, next) => {
   }
 };
 
+/**
+ * Check judge's scoring completion status for competitions
+ * GET /api/competitions/judge-scoring-status
+ * Returns list of competition IDs where judge has completed scoring
+ */
+const getJudgeScoringStatus = async (req, res, next) => {
+  try {
+    const judge_id = req.user.id;
+    
+    console.log(`🔍 Checking scoring status for judge ${judge_id}`);
+    
+    // Get all active competitions
+    const competitionsResult = await db.query(`
+      SELECT c.id, c.name,
+             (SELECT COUNT(*) FROM competition_athletes ca WHERE ca.competition_id = c.id) as total_athletes
+      FROM competitions c
+      WHERE c.status = 'active'
+    `);
+    
+    const competitions = competitionsResult.rows;
+    const completionStatus = {};
+    
+    // For each competition, check if judge has scored all athletes
+    for (const competition of competitions) {
+      const { id, total_athletes } = competition;
+      
+      // Count how many athletes this judge has submitted scores for
+      const scoredResult = await db.query(`
+        SELECT COUNT(*) as scored_count
+        FROM scores
+        WHERE competition_id = $1 
+        AND judge_id = $2
+        AND submitted_at IS NOT NULL
+      `, [id, judge_id]);
+      
+      const scored_count = parseInt(scoredResult.rows[0].scored_count);
+      
+      // Judge has completed scoring if they've scored all athletes
+      completionStatus[id] = {
+        completed: scored_count >= total_athletes && total_athletes > 0,
+        scored_count,
+        total_athletes
+      };
+      
+      console.log(`📊 Competition ${id}: ${scored_count}/${total_athletes} athletes scored`);
+    }
+    
+    res.status(200).json({
+      status: 'success',
+      data: {
+        judge_id,
+        competitions: completionStatus
+      }
+    });
+    
+  } catch (err) {
+    console.error('Get judge scoring status error:', err);
+    next(err);
+  }
+};
+
 module.exports = {
+  getPublicCompetitions,
   getAllCompetitions,
   getCompetitionById,
   createCompetition,
@@ -1040,5 +1174,6 @@ module.exports = {
   addAthleteToCompetition,
   removeAthleteFromCompetition,
   getCompetitionAthletes,
-  exportCompetitionToExcel
+  exportCompetitionToExcel,
+  getJudgeScoringStatus
 };

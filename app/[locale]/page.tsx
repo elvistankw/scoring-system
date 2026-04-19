@@ -1,4 +1,4 @@
-// Root locale page - redirects to sign-in
+// Root locale page - redirects to judge landing
 // Requirements: 15.1, 15.5
 
 import type { Metadata } from 'next';
@@ -28,6 +28,6 @@ export default async function RootPage({
 }) {
   const { locale } = await params;
   
-  // Redirect to sign-in page with locale
-  redirect(`/${locale}/sign-in`);
+  // Redirect to judge landing page with locale
+  redirect(`/${locale}/judge-landing`);
 }

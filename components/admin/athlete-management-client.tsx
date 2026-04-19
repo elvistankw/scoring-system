@@ -62,7 +62,7 @@ export function AthleteManagementClient({ locale }: AthleteManagementClientProps
   const handleGoBack = () => {
     // Navigate back to admin dashboard
     const segments = pathname.split('/');
-    const locale = segments[1];
+    const locale = segments[1] || 'zh'; // Default to 'zh' if locale is undefined
     router.push(`/${locale}/admin-dashboard`);
   };
 

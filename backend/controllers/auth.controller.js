@@ -71,9 +71,9 @@ const register = async (req, res, next) => {
       return next(new AppError(passwordValidation.message, 400));
     }
 
-    // 4. Validate role
-    if (!['admin', 'judge'].includes(role)) {
-      return next(new AppError('Role must be either "admin" or "judge"', 400));
+    // 4. Validate role - only admin can register through auth system
+    if (role !== 'admin') {
+      return next(new AppError('Only admin role can register through authentication system', 400));
     }
 
     // 5. Check if user already exists
@@ -144,14 +144,14 @@ const login = async (req, res, next) => {
       return next(new AppError('Please provide email and password', 400));
     }
 
-    // 2. Check if user exists
+    // 2. Check if user exists and is admin
     const result = await db.query(
-      'SELECT id, username, email, password_hash, role FROM users WHERE email = $1',
-      [email]
+      'SELECT id, username, email, password_hash, role FROM users WHERE email = $1 AND role = $2',
+      [email, 'admin']
     );
 
     if (result.rows.length === 0) {
-      return next(new AppError('Invalid email or password', 401));
+      return next(new AppError('Invalid email or password, or account not authorized', 401));
     }
 
     const user = result.rows[0];

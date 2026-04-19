@@ -5,10 +5,10 @@
 
 import { useState, useEffect } from 'react';
 import { DynamicRankingTable } from '@/lib/dynamic-imports';
+import { usePublicCompetitions } from '@/hooks/use-competitions';
 import { measurePageLoad } from '@/lib/performance-monitor';
 import { useTranslation } from '@/i18n/use-dictionary';
 import type { Competition } from '@/interface/competition';
-import { API_ENDPOINTS } from '@/lib/api-config';
 import { toast } from 'sonner';
 
 /**
@@ -17,54 +17,33 @@ import { toast } from 'sonner';
  */
 export function RankingsClient() {
   const { t } = useTranslation();
-  const [competitions, setCompetitions] = useState<Competition[]>([]);
   const [selectedCompetition, setSelectedCompetition] = useState<Competition | null>(null);
   const [selectedRegion, setSelectedRegion] = useState<string>('');
-  const [loading, setLoading] = useState(true);
   const [regions, setRegions] = useState<string[]>([]);
+
+  // Use public competitions hook
+  const { competitions, isLoading, isError, error } = usePublicCompetitions({ status: 'active' });
 
   // Measure page load performance
   useEffect(() => {
     measurePageLoad('Rankings');
   }, []);
 
-  // Fetch active competitions
+  // Update regions and auto-select first competition when competitions are loaded
   useEffect(() => {
-    const fetchCompetitions = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch(`${API_ENDPOINTS.competitions.list}?status=active`);
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch competitions');
-        }
-        
-        const data = await response.json();
-        
-        if (data.success && data.data) {
-          setCompetitions(data.data);
-          
-          // Extract unique regions
-          const uniqueRegions = Array.from(
-            new Set(data.data.map((c: Competition) => c.region))
-          ) as string[];
-          setRegions(uniqueRegions);
-          
-          // Auto-select first competition if available
-          if (data.data.length > 0) {
-            setSelectedCompetition(data.data[0]);
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching competitions:', error);
-        toast.error(t('display.loadFailed'));
-      } finally {
-        setLoading(false);
+    if (competitions.length > 0) {
+      // Extract unique regions
+      const uniqueRegions = Array.from(
+        new Set(competitions.map((c: Competition) => c.region))
+      ) as string[];
+      setRegions(uniqueRegions);
+      
+      // Auto-select first competition if not already selected
+      if (!selectedCompetition) {
+        setSelectedCompetition(competitions[0]);
       }
-    };
-
-    fetchCompetitions();
-  }, []);
+    }
+  }, [competitions, selectedCompetition]);
 
   // Handle competition selection
   const handleCompetitionChange = (competitionId: string) => {
@@ -80,12 +59,31 @@ export function RankingsClient() {
     setSelectedRegion(region);
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto mb-4"></div>
           <p className="text-xl text-gray-400">{t('display.loading')}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return (
+      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <div className="text-6xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-bold mb-2">{t('display.loadFailed')}</h2>
+          <p className="text-gray-400 mb-4">{errorMessage}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+          >
+            {t('display.retry')}
+          </button>
         </div>
       </div>
     );

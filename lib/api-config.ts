@@ -21,6 +21,7 @@ export const API_ENDPOINTS = {
   // Competition endpoints
   competitions: {
     list: `${API_BASE_URL}/api/competitions`,
+    public: `${API_BASE_URL}/api/competitions/public`, // Public endpoint for display components
     create: `${API_BASE_URL}/api/competitions`,
     detail: (id: number) => `${API_BASE_URL}/api/competitions/${id}`,
     update: (id: number) => `${API_BASE_URL}/api/competitions/${id}`,
@@ -32,6 +33,8 @@ export const API_ENDPOINTS = {
     exportExcel: (id: number) => `${API_BASE_URL}/api/competitions/${id}/export-excel`,
     byRegion: (region: string) => `${API_BASE_URL}/api/competitions?region=${region}`,
     byStatus: (status: string) => `${API_BASE_URL}/api/competitions?status=${status}`,
+    publicByStatus: (status: string) => `${API_BASE_URL}/api/competitions/public?status=${status}`,
+    judgeScoringStatus: `${API_BASE_URL}/api/competitions/judge-scoring-status`,
   },
 
   // Athlete endpoints
@@ -44,10 +47,44 @@ export const API_ENDPOINTS = {
     competitions: (id: number) => `${API_BASE_URL}/api/athletes/${id}/competitions`,
   },
 
+  // Judge endpoints
+  judges: {
+    // Public judge identity selection (no authentication required)
+    available: `${API_BASE_URL}/api/judges/available`,
+    selectIdentity: `${API_BASE_URL}/api/judges/select-identity`,
+    currentSession: (deviceId: string) => `${API_BASE_URL}/api/judges/current-session?deviceId=${deviceId}`,
+    endSession: `${API_BASE_URL}/api/judges/end-session`,
+    extendSession: `${API_BASE_URL}/api/judges/extend-session`,
+    
+    // Judge management (Admin authentication required)
+    list: `${API_BASE_URL}/api/judges`,
+    create: `${API_BASE_URL}/api/judges`,
+    detail: (id: number) => `${API_BASE_URL}/api/judges/${id}`,
+    update: (id: number) => `${API_BASE_URL}/api/judges/${id}`,
+    delete: (id: number) => `${API_BASE_URL}/api/judges/${id}`,
+    toggleActive: (id: number) => `${API_BASE_URL}/api/judges/${id}/toggle-active`,
+    stats: `${API_BASE_URL}/api/judges/stats`,
+  },
+
+  // Events endpoints
+  events: {
+    active: `${API_BASE_URL}/api/events/active`,
+    list: `${API_BASE_URL}/api/events`,
+    create: `${API_BASE_URL}/api/events`,
+    detail: (id: number) => `${API_BASE_URL}/api/events/${id}`,
+    update: (id: number) => `${API_BASE_URL}/api/events/${id}`,
+    delete: (id: number) => `${API_BASE_URL}/api/events/${id}`,
+    activate: (id: number) => `${API_BASE_URL}/api/events/${id}/activate`,
+  },
+
   // Score endpoints
   scores: {
     submit: `${API_BASE_URL}/api/scores/submit`,
+    batchSubmit: `${API_BASE_URL}/api/scores/batch-submit`,
+    partialUpdate: `${API_BASE_URL}/api/scores/partial-update`,
     list: `${API_BASE_URL}/api/scores`,
+    update: (scoreId: number) => `${API_BASE_URL}/api/scores/${scoreId}`,
+    delete: (scoreId: number) => `${API_BASE_URL}/api/scores/${scoreId}`,
     byCompetition: (competitionId: number) => 
       `${API_BASE_URL}/api/scores?competition_id=${competitionId}`,
     byAthlete: (athleteId: number) => 
@@ -131,6 +168,15 @@ export function getAuthHeaders(token: string): HeadersInit {
   return {
     ...REQUEST_CONFIG.headers,
     'Authorization': `Bearer ${token}`,
+  };
+}
+
+// Helper function to get judge session headers
+export function getJudgeSessionHeaders(sessionId: string, deviceId: string): HeadersInit {
+  return {
+    ...REQUEST_CONFIG.headers,
+    'x-judge-session-id': sessionId,
+    'x-device-id': deviceId,
   };
 }
 

@@ -27,7 +27,7 @@ export function AuthForm({ mode, onSubmit, isLoading = false }: AuthFormProps) {
     email: '',
     password: '',
     username: '',
-    role: 'judge',
+    role: 'admin', // Only admin role allowed
   });
 
   const [errors, setErrors] = useState<Partial<Record<keyof AuthFormData, string>>>({});
@@ -166,9 +166,11 @@ export function AuthForm({ mode, onSubmit, isLoading = false }: AuthFormProps) {
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
             disabled={isLoading}
           >
-            <option value="judge">{t('auth.judge')}</option>
             <option value="admin">{t('auth.admin')}</option>
           </select>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            {t('auth.adminOnlyRegistration')}
+          </p>
         </div>
       )}
 

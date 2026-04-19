@@ -1,0 +1,168 @@
+🔍 正在获取数据库Schema信息...
+
+
+============================================================
+📋 数据库表列表
+============================================================
+表名 | 所有者 | 大小
+---|-----|---
+athletes | postgres | 176 kB
+competition_athletes | postgres | 120 kB
+competitions | postgres | 160 kB
+scores | postgres | 120 kB
+user_google_tokens | postgres | 40 kB
+users | postgres | 104 kB
+
+============================================================
+🏗️  表结构详情
+============================================================
+表名 | 列名 | 数据类型 | 可空 | 默认值
+---|----|------|----|----
+athletes | id | integer(32,0) | NO | nextval('athletes_id_seq'::regclass)
+athletes | name | character varying(100) | NO | 
+athletes | athlete_number | character varying(20) | YES | 
+athletes | team_name | character varying(100) | YES | 
+athletes | contact_email | character varying(100) | YES | 
+athletes | contact_phone | character varying(20) | YES | 
+athletes | created_at | timestamp without time zone | YES | CURRENT_TIMESTAMP
+athletes | updated_at | timestamp without time zone | YES | CURRENT_TIMESTAMP
+athletes | age | integer(32,0) | YES | 
+athletes | gender | character varying(10) | YES | 
+athletes | school | character varying(200) | YES | 
+competition_athletes | id | integer(32,0) | NO | nextval('competition_athletes_id_seq'::regclass)
+competition_athletes | competition_id | integer(32,0) | NO | 
+competition_athletes | athlete_id | integer(32,0) | NO | 
+competition_athletes | registration_date | timestamp without time zone | YES | CURRENT_TIMESTAMP
+competitions | id | integer(32,0) | NO | nextval('competitions_id_seq'::regclass)
+competitions | name | character varying(100) | NO | 
+competitions | competition_type | character varying(20) | NO | 
+competitions | region | character varying(50) | NO | 
+competitions | status | character varying(20) | YES | 'upcoming'::character varying
+competitions | start_date | timestamp without time zone | YES | 
+competitions | end_date | timestamp without time zone | YES | 
+competitions | created_by | integer(32,0) | YES | 
+competitions | created_at | timestamp without time zone | YES | CURRENT_TIMESTAMP
+competitions | updated_at | timestamp without time zone | YES | CURRENT_TIMESTAMP
+competitions | division | character varying(50) | YES | 
+scores | id | integer(32,0) | NO | nextval('scores_id_seq'::regclass)
+scores | competition_id | integer(32,0) | NO | 
+scores | athlete_id | integer(32,0) | NO | 
+scores | judge_id | integer(32,0) | NO | 
+scores | action_difficulty | numeric(5,2) | YES | 
+scores | stage_artistry | numeric(5,2) | YES | 
+scores | action_creativity | numeric(5,2) | YES | 
+scores | action_fluency | numeric(5,2) | YES | 
+scores | costume_styling | numeric(5,2) | YES | 
+scores | action_interaction | numeric(5,2) | YES | 
+scores | submitted_at | timestamp without time zone | YES | CURRENT_TIMESTAMP
+user_google_tokens | id | integer(32,0) | NO | nextval('user_google_tokens_id_seq'::regclass)
+user_google_tokens | user_id | integer(32,0) | NO | 
+user_google_tokens | access_token | text | NO | 
+user_google_tokens | refresh_token | text | YES | 
+user_google_tokens | google_email | character varying(255) | NO | 
+user_google_tokens | expires_at | timestamp without time zone | NO | 
+user_google_tokens | created_at | timestamp without time zone | YES | CURRENT_TIMESTAMP
+user_google_tokens | updated_at | timestamp without time zone | YES | CURRENT_TIMESTAMP
+users | id | integer(32,0) | NO | nextval('users_id_seq'::regclass)
+users | username | character varying(50) | NO | 
+users | email | character varying(100) | NO | 
+users | password_hash | character varying(255) | NO | 
+users | role | character varying(20) | NO | 
+users | created_at | timestamp without time zone | YES | CURRENT_TIMESTAMP
+users | updated_at | timestamp without time zone | YES | CURRENT_TIMESTAMP
+
+============================================================
+🔑 主键约束
+============================================================
+表名 | 主键列
+---|----
+athletes | id
+competition_athletes | id
+competitions | id
+scores | id
+user_google_tokens | id
+users | id
+
+============================================================
+🔗 外键关系
+============================================================
+源表 | 源列 | 目标表 | 目标列 | 删除规则 | 更新规则
+---|----|-----|-----|------|-----
+competition_athletes | competition_id | competitions | id | CASCADE | NO ACTION
+competition_athletes | athlete_id | athletes | id | CASCADE | NO ACTION
+competitions | created_by | users | id | SET NULL | NO ACTION
+scores | competition_id | competitions | id | CASCADE | NO ACTION
+scores | athlete_id | athletes | id | CASCADE | NO ACTION
+scores | judge_id | users | id | CASCADE | NO ACTION
+user_google_tokens | user_id | users | id | CASCADE | NO ACTION
+
+============================================================
+📊 索引信息
+============================================================
+表名 | 索引名 | 索引定义
+---|-----|-----
+athletes | athletes_athlete_number_key | CREATE UNIQUE INDEX athletes_athlete_number_key ON public.athletes USING btree (athlete_number)
+athletes | idx_athletes_age | CREATE INDEX idx_athletes_age ON public.athletes USING btree (age)
+athletes | idx_athletes_gender | CREATE INDEX idx_athletes_gender ON public.athletes USING btree (gender)
+athletes | idx_athletes_name | CREATE INDEX idx_athletes_name ON public.athletes USING btree (name)
+athletes | idx_athletes_number | CREATE INDEX idx_athletes_number ON public.athletes USING btree (athlete_number)
+athletes | idx_athletes_school | CREATE INDEX idx_athletes_school ON public.athletes USING btree (school)
+athletes | idx_athletes_team_name | CREATE INDEX idx_athletes_team_name ON public.athletes USING btree (team_name)
+competition_athletes | competition_athletes_competition_id_athlete_id_key | CREATE UNIQUE INDEX competition_athletes_competition_id_athlete_id_key ON public.competition_athletes USING btree (competition_id, athlete_id)
+competition_athletes | idx_comp_athletes_athlete | CREATE INDEX idx_comp_athletes_athlete ON public.competition_athletes USING btree (athlete_id)
+competition_athletes | idx_comp_athletes_comp | CREATE INDEX idx_comp_athletes_comp ON public.competition_athletes USING btree (competition_id)
+competition_athletes | idx_comp_athletes_reg_date | CREATE INDEX idx_comp_athletes_reg_date ON public.competition_athletes USING btree (registration_date)
+competitions | idx_competitions_created_by | CREATE INDEX idx_competitions_created_by ON public.competitions USING btree (created_by)
+competitions | idx_competitions_division | CREATE INDEX idx_competitions_division ON public.competitions USING btree (division)
+competitions | idx_competitions_region | CREATE INDEX idx_competitions_region ON public.competitions USING btree (region)
+competitions | idx_competitions_start_date | CREATE INDEX idx_competitions_start_date ON public.competitions USING btree (start_date)
+competitions | idx_competitions_status | CREATE INDEX idx_competitions_status ON public.competitions USING btree (status)
+competitions | idx_competitions_type | CREATE INDEX idx_competitions_type ON public.competitions USING btree (competition_type)
+scores | idx_scores_athlete | CREATE INDEX idx_scores_athlete ON public.scores USING btree (athlete_id)
+scores | idx_scores_comp_athlete | CREATE INDEX idx_scores_comp_athlete ON public.scores USING btree (competition_id, athlete_id)
+scores | idx_scores_competition | CREATE INDEX idx_scores_competition ON public.scores USING btree (competition_id)
+scores | idx_scores_judge | CREATE INDEX idx_scores_judge ON public.scores USING btree (judge_id)
+scores | idx_scores_submitted | CREATE INDEX idx_scores_submitted ON public.scores USING btree (submitted_at DESC)
+scores | unique_judge_athlete_score | CREATE UNIQUE INDEX unique_judge_athlete_score ON public.scores USING btree (competition_id, athlete_id, judge_id)
+user_google_tokens | idx_user_google_tokens_expires_at | CREATE INDEX idx_user_google_tokens_expires_at ON public.user_google_tokens USING btree (expires_at)
+user_google_tokens | idx_user_google_tokens_user_id | CREATE INDEX idx_user_google_tokens_user_id ON public.user_google_tokens USING btree (user_id)
+user_google_tokens | user_google_tokens_user_id_key | CREATE UNIQUE INDEX user_google_tokens_user_id_key ON public.user_google_tokens USING btree (user_id)
+users | idx_users_email | CREATE INDEX idx_users_email ON public.users USING btree (email)
+users | idx_users_role | CREATE INDEX idx_users_role ON public.users USING btree (role)
+users | idx_users_username | CREATE INDEX idx_users_username ON public.users USING btree (username)
+users | users_email_key | CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)
+users | users_username_key | CREATE UNIQUE INDEX users_username_key ON public.users USING btree (username)
+
+============================================================
+✅ 检查约束
+============================================================
+表名 | 约束名 | 检查条件
+---|-----|-----
+athletes | athletes_gender_check | ((gender)::text = ANY ((ARRAY['male'::character varying, 'female'::character varying, 'other'::character varying, NULL::character varying])::text[]))
+athletes | athletes_name_not_null | name IS NOT NULL
+athletes | athletes_id_not_null | id IS NOT NULL
+competition_athletes | competition_athletes_competition_id_not_null | competition_id IS NOT NULL
+competition_athletes | competition_athletes_athlete_id_not_null | athlete_id IS NOT NULL
+competition_athletes | competition_athletes_id_not_null | id IS NOT NULL
+competitions | competitions_region_not_null | region IS NOT NULL
+competitions | competitions_competition_type_check | ((competition_type)::text = ANY ((ARRAY['individual'::character varying, 'duo'::character varying, 'team'::character varying, 'challenge'::character varying])::text[]))
+competitions | competitions_status_check | ((status)::text = ANY ((ARRAY['upcoming'::character varying, 'active'::character varying, 'completed'::character varying])::text[]))
+competitions | check_division_values | ((division)::text = ANY ((ARRAY['小学组'::character varying, '公开组'::character varying])::text[]))
+competitions | competitions_id_not_null | id IS NOT NULL
+competitions | competitions_name_not_null | name IS NOT NULL
+competitions | competitions_competition_type_not_null | competition_type IS NOT NULL
+scores | scores_judge_id_not_null | judge_id IS NOT NULL
+scores | scores_competition_id_not_null | competition_id IS NOT NULL
+scores | scores_id_not_null | id IS NOT NULL
+scores | scores_athlete_id_not_null | athlete_id IS NOT NULL
+user_google_tokens | user_google_tokens_expires_at_not_null | expires_at IS NOT NULL
+user_google_tokens | user_google_tokens_id_not_null | id IS NOT NULL
+user_google_tokens | user_google_tokens_user_id_not_null | user_id IS NOT NULL
+user_google_tokens | user_google_tokens_access_token_not_null | access_token IS NOT NULL
+user_google_tokens | user_google_tokens_google_email_not_null | google_email IS NOT NULL
+users | users_id_not_null | id IS NOT NULL
+users | users_role_check | ((role)::text = ANY ((ARRAY['admin'::character varying, 'judge'::character varying])::text[]))
+users | users_role_not_null | role IS NOT NULL
+users | users_password_hash_not_null | password_hash IS NOT NULL
+users | users_email_not_null | email IS NOT NULL
+users | users_username_not_null | username IS NOT NULL

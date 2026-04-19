@@ -5,28 +5,26 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser } from '@/hooks/use-user';
+import { useJudgeSession } from '@/hooks/use-judge-session';
 import { SkeletonCard } from '@/components/shared/loading-skeleton';
 import { useTranslation } from '@/i18n/use-dictionary';
 
 export function JudgeDashboard() {
-  const { user, isLoading, isJudge } = useUser();
+  const { currentSession, loadingSession } = useJudgeSession();
   const router = useRouter();
   const { t } = useTranslation();
 
   useEffect(() => {
-    if (!isLoading && !user) {
-      router.push('/sign-in');
-    } else if (!isLoading && user && !isJudge) {
-      router.push('/admin-dashboard');
+    if (!loadingSession && !currentSession) {
+      router.push('/judge-landing');
     }
-  }, [user, isLoading, isJudge, router]);
+  }, [currentSession, loadingSession, router]);
 
-  if (isLoading) {
+  if (loadingSession) {
     return <SkeletonCard />;
   }
 
-  if (!user || !isJudge) {
+  if (!currentSession) {
     return null;
   }
 
@@ -38,7 +36,7 @@ export function JudgeDashboard() {
             {t('judge.dashboard')}
           </h1>
           <p className="mt-2 text-gray-600 dark:text-gray-400">
-            {t('admin.welcomeBack')}，{user.username}
+            {t('admin.welcomeBack')}，{currentSession.judge_name}
           </p>
         </div>
 

@@ -238,9 +238,90 @@ const validatePagination = (req, res, next) => {
   next();
 };
 
+/**
+ * Validate judge creation
+ */
+const validateJudgeCreate = (req, res, next) => {
+  const { name, display_name } = req.body;
+
+  const errors = [];
+
+  // Validate name
+  if (!name || typeof name !== 'string' || name.trim().length === 0) {
+    errors.push('name is required and must be a non-empty string');
+  } else if (name.trim().length > 100) {
+    errors.push('name must not exceed 100 characters');
+  }
+
+  // Validate display_name if provided
+  if (display_name !== undefined) {
+    if (typeof display_name !== 'string') {
+      errors.push('display_name must be a string');
+    } else if (display_name.trim().length > 100) {
+      errors.push('display_name must not exceed 100 characters');
+    }
+  }
+
+  if (errors.length > 0) {
+    return next(new AppError(`Judge validation failed: ${errors.join('; ')}`, 400));
+  }
+
+  // Clean the data
+  req.body.name = name.trim();
+  if (display_name) {
+    req.body.display_name = display_name.trim();
+  }
+
+  next();
+};
+
+/**
+ * Validate judge update
+ */
+const validateJudgeUpdate = (req, res, next) => {
+  const { name, display_name, is_active } = req.body;
+
+  const errors = [];
+
+  // Validate name
+  if (!name || typeof name !== 'string' || name.trim().length === 0) {
+    errors.push('name is required and must be a non-empty string');
+  } else if (name.trim().length > 100) {
+    errors.push('name must not exceed 100 characters');
+  }
+
+  // Validate display_name if provided
+  if (display_name !== undefined) {
+    if (typeof display_name !== 'string') {
+      errors.push('display_name must be a string');
+    } else if (display_name.trim().length > 100) {
+      errors.push('display_name must not exceed 100 characters');
+    }
+  }
+
+  // Validate is_active if provided
+  if (is_active !== undefined && typeof is_active !== 'boolean') {
+    errors.push('is_active must be a boolean value');
+  }
+
+  if (errors.length > 0) {
+    return next(new AppError(`Judge validation failed: ${errors.join('; ')}`, 400));
+  }
+
+  // Clean the data
+  req.body.name = name.trim();
+  if (display_name) {
+    req.body.display_name = display_name.trim();
+  }
+
+  next();
+};
+
 module.exports = {
   validate,
   validateScoreSubmission,
   validatePagination,
+  validateJudgeCreate,
+  validateJudgeUpdate,
   validators
 };

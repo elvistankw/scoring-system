@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 
 interface GlassSelectOption {
   value: string;
-  label: string;
+  label: string | React.ReactNode;
 }
 
 interface GlassSelectProps {
@@ -12,7 +12,7 @@ interface GlassSelectProps {
   value: string;
   onChange: (value: string) => void;
   options: GlassSelectOption[];
-  label?: string;
+  label?: string | React.ReactNode;
   placeholder?: string;
   className?: string;
 }

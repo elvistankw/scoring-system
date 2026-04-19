@@ -34,8 +34,10 @@ export function SignUpClient({ locale }: SignUpClientProps) {
     if (!isCheckingAuth && user) {
       if (user.role === 'admin') {
         router.replace(`/${locale}/admin-dashboard`);
-      } else if (user.role === 'judge') {
-        router.replace(`/${locale}/judge-dashboard`);
+      } else {
+        // Non-admin users should not access registration page
+        toast.error('Access denied. Admin access only.');
+        router.replace(`/${locale}`);
       }
     }
   }, [user, isCheckingAuth, router, locale]);
@@ -65,10 +67,9 @@ export function SignUpClient({ locale }: SignUpClientProps) {
       // Redirect based on role with locale using replace to prevent back navigation
       if (response.user.role === 'admin') {
         router.replace(`/${locale}/admin-dashboard`);
-      } else if (response.user.role === 'judge') {
-        router.replace(`/${locale}/judge-dashboard`);
       } else {
-        toast.error(t('auth.signUpError'));
+        toast.error('Access denied. Admin access only.');
+        router.replace(`/${locale}`);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : t('auth.signUpError');

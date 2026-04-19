@@ -99,8 +99,8 @@ const getCorsConfig = (allowedOrigin) => {
       }
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-judge-session-id', 'x-device-id', 'X-Judge-ID', 'X-Device-ID'],
     exposedHeaders: ['RateLimit-Limit', 'RateLimit-Remaining', 'RateLimit-Reset'],
     maxAge: 86400 // 24 hours
   };

@@ -3,15 +3,17 @@
 
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
-import { useCompetitions } from '@/hooks/use-competitions';
-import { useUser } from '@/hooks/use-user';
-import { API_ENDPOINTS, getAuthHeaders } from '@/lib/api-config';
-import type { Competition, CompetitionStatus, CompetitionType } from '@/interface/competition';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import useSWR from 'swr';
+import { useJudgeSession } from '@/hooks/use-judge-session';
+import { API_ENDPOINTS } from '@/lib/api-config';
+import { staticSwrConfig, fetcher, judgeFetcher } from '@/lib/swr-config';
+import type { Competition, CompetitionStatus, CompetitionType, CompetitionListResponse } from '@/interface/competition';
 import { SkeletonCompetitionList } from '@/components/shared/loading-skeleton';
 import { useTranslation } from '@/i18n/use-dictionary';
 import { GlassCard } from '@/components/shared/animated-card';
 import { GlassSelect } from '@/components/shared/glass-select';
+import { BilingualText } from '@/components/shared/bilingual-text';
 
 interface CompetitionSelectorProps {
   onSelect: (competition: Competition) => void;
@@ -23,20 +25,65 @@ interface CompetitionWithAvailability extends Competition {
 }
 
 export function CompetitionSelector({ onSelect, selectedCompetition }: CompetitionSelectorProps) {
+  // All hooks must be at the top level - no conditional hooks
   const { t } = useTranslation();
-  const { user } = useUser();
+  const { currentSession } = useJudgeSession();
 
+  // All state hooks declared at the top
   const [statusFilter, setStatusFilter] = useState<CompetitionStatus | 'all'>('active');
   const [regionFilter, setRegionFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<CompetitionType | 'all'>('all');
   const [divisionFilter, setDivisionFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState<string>('');
   const [competitionsWithAvailability, setCompetitionsWithAvailability] = useState<CompetitionWithAvailability[]>([]);
+  const [judgeScoringStatus, setJudgeScoringStatus] = useState<Record<number, { completed: boolean; scored_count: number; total_athletes: number }>>({});
+  
+  // Ref to track if we're currently fetching to prevent duplicate requests
+  const isFetchingRef = useRef(false);
+
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   // Fetch competitions with filters - judges only see active and upcoming
-  const { competitions, isLoading, isError, error } = useCompetitions({
-    status: statusFilter !== 'all' ? statusFilter : undefined,
-  });
+  // Only fetch if judge has active session to prevent unnecessary errors
+  const shouldFetchCompetitions = Boolean(
+    currentSession && 
+    typeof window !== 'undefined'
+  );
+  
+  // Build the URL for competitions
+  let competitionsUrl = API_ENDPOINTS.competitions.list;
+  if (statusFilter !== 'all') {
+    const params = new URLSearchParams();
+    params.append('status', statusFilter);
+    competitionsUrl += `?${params.toString()}`;
+  }
+  
+  // Use SWR directly with conditional key - IMPORTANT: null key prevents any request
+  const swrKey = shouldFetchCompetitions ? competitionsUrl : null;
+  
+  // Create judge-specific fetcher if judge session is active
+  const swrFetcher = currentSession 
+    ? judgeFetcher(currentSession.id.toString(), currentSession.device_id)
+    : fetcher;
+  
+  const { data: competitionsData, isLoading: swrLoading, error } = useSWR<CompetitionListResponse>(
+    swrKey, // This will be null if user not authenticated, preventing any request
+    swrFetcher,
+    staticSwrConfig
+  );
+  
+  const competitions = competitionsData?.data?.competitions || [];
+
+  // Loading state - show loading if SWR is loading
+  const isLoadingData = swrLoading;
 
   // Get unique regions from competitions
   const regions = useMemo(() => {
@@ -44,66 +91,123 @@ export function CompetitionSelector({ onSelect, selectedCompetition }: Competiti
     return Array.from(uniqueRegions).sort();
   }, [competitions]);
 
-  // Filter competitions by region, type, and division on client side
-  const filteredCompetitions = useMemo(() => {
-    return competitions.filter(competition => {
-      const matchesRegion = regionFilter === 'all' || competition.region === regionFilter;
-      const matchesType = typeFilter === 'all' || competition.competition_type === typeFilter;
-      const matchesDivision = divisionFilter === 'all' || competition.division === divisionFilter;
-      const matchesSearch = !searchTerm || 
-        competition.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        competition.region.toLowerCase().includes(searchTerm.toLowerCase());
-      return matchesRegion && matchesType && matchesDivision && matchesSearch;
-    });
-  }, [competitions, regionFilter, typeFilter, divisionFilter, searchTerm]);
+  // Create stable competition IDs for dependency tracking
+  const competitionIds = useMemo(() => 
+    competitions.map(c => c.id).sort().join(','), 
+    [competitions]
+  );
+
+  // Fetch judge scoring status - use SWR for automatic caching and deduplication
+  const { data: scoringStatusData } = useSWR(
+    currentSession?.judge_id && competitions.length > 0 
+      ? API_ENDPOINTS.competitions.judgeScoringStatus 
+      : null,
+    swrFetcher,
+    {
+      ...staticSwrConfig,
+      revalidateOnFocus: false, // Don't refetch when window regains focus
+      revalidateOnReconnect: false, // Don't refetch on reconnect
+      dedupingInterval: 60000, // Dedupe requests within 60 seconds
+    }
+  );
+
+  // Update local state when scoring status data changes
+  useEffect(() => {
+    if (scoringStatusData?.status === 'success') {
+      setJudgeScoringStatus(scoringStatusData.data.competitions);
+      console.log('📊 Judge scoring status loaded:', scoringStatusData.data.competitions);
+    }
+  }, [scoringStatusData]);
 
   // Fetch available athletes count for each active competition
   useEffect(() => {
     const fetchAvailableAthletesCount = async () => {
-      if (!user?.id || filteredCompetitions.length === 0) {
-        setCompetitionsWithAvailability(filteredCompetitions);
+      // Prevent duplicate requests
+      if (isFetchingRef.current) {
         return;
       }
-
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
-        setCompetitionsWithAvailability(filteredCompetitions);
+      
+      // Check if judge has active session
+      if (typeof window === 'undefined') return;
+      
+      if (!currentSession) {
+        setCompetitionsWithAvailability(competitions);
         return;
       }
+      
+      isFetchingRef.current = true;
+      
+      try {
+        // Recompute filtered competitions inside the effect to avoid stale closure
+        const currentFilteredCompetitions = competitions.filter(competition => {
+          const matchesRegion = regionFilter === 'all' || competition.region === regionFilter;
+          const matchesType = typeFilter === 'all' || competition.competition_type === typeFilter;
+          const matchesDivision = divisionFilter === 'all' || competition.division === divisionFilter;
+          const matchesSearch = !debouncedSearchTerm || 
+            competition.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+            competition.region.toLowerCase().includes(debouncedSearchTerm.toLowerCase());
+          return matchesRegion && matchesType && matchesDivision && matchesSearch;
+        });
 
-      // Fetch available athletes count for each active competition
-      const competitionsWithCounts = await Promise.all(
-        filteredCompetitions.map(async (competition) => {
-          if (competition.status !== 'active') {
-            return { ...competition, available_athletes_count: undefined };
-          }
+        if (currentFilteredCompetitions.length === 0) {
+          setCompetitionsWithAvailability([]);
+          return;
+        }
 
-          try {
-            const url = `${API_ENDPOINTS.athletes.list}?competition_id=${competition.id}&judge_id=${user.id}&exclude_scored=true`;
-            const response = await fetch(url, {
-              headers: getAuthHeaders(token),
-            });
-
-            if (response.ok) {
-              const data = await response.json();
-              return {
-                ...competition,
-                available_athletes_count: data.data?.count || data.data?.athletes?.length || 0,
-              };
+        // Fetch available athletes count for each active competition
+        const competitionsWithCounts = await Promise.all(
+          currentFilteredCompetitions.map(async (competition) => {
+            if (competition.status !== 'active') {
+              return { ...competition, available_athletes_count: undefined };
             }
-          } catch (error) {
-            console.error(`Failed to fetch available athletes for competition ${competition.id}:`, error);
-          }
 
-          return { ...competition, available_athletes_count: undefined };
-        })
-      );
+            try {
+              // Skip athlete count for judge sessions - not needed for judge functionality
+              return { ...competition, available_athletes_count: undefined };
+            } catch (error) {
+              console.error(`Failed to fetch available athletes for competition ${competition.id}:`, error);
+            }
 
-      setCompetitionsWithAvailability(competitionsWithCounts);
+            return { ...competition, available_athletes_count: undefined };
+          })
+        );
+
+        setCompetitionsWithAvailability(competitionsWithCounts);
+      } finally {
+        isFetchingRef.current = false;
+      }
     };
 
-    fetchAvailableAthletesCount();
-  }, [filteredCompetitions, user?.id]);
+    // Only run if we have competitions and judge session is active
+    if (competitions.length > 0 && currentSession?.judge_id) {
+      fetchAvailableAthletesCount();
+    } else {
+      setCompetitionsWithAvailability(competitions);
+    }
+  }, [
+    // Use stable dependencies to prevent infinite loops
+    competitionIds,
+    statusFilter,
+    regionFilter,
+    typeFilter,
+    divisionFilter,
+    debouncedSearchTerm,
+    currentSession?.judge_id
+  ]);
+
+  // Early return AFTER all hooks are declared to avoid Rules of Hooks violation
+  if (!currentSession) {
+    return (
+      <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-12 text-center">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+          <p className="text-gray-500 dark:text-gray-400 text-lg">
+            Checking authentication...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Get competition type label
   const getCompetitionTypeLabel = (type: CompetitionType): string => {
@@ -147,12 +251,27 @@ export function CompetitionSelector({ onSelect, selectedCompetition }: Competiti
   };
 
   // Loading state
-  if (isLoading) {
+  if (isLoadingData) {
     return <SkeletonCompetitionList count={6} />;
   }
 
   // Error state
-  if (isError) {
+  if (error) {
+    // Handle authentication errors gracefully
+    if (error?.message?.includes('Session expired') || error?.message?.includes('Unauthorized')) {
+      return (
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-6 text-center">
+          <div className="flex flex-col items-center space-y-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-600" />
+            <p className="text-yellow-800 dark:text-yellow-200 font-medium">
+              Session expired, redirecting to login...
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // Handle other errors
     return (
       <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6 text-center">
         <p className="text-red-600 dark:text-red-400 font-medium mb-2">
@@ -172,7 +291,7 @@ export function CompetitionSelector({ onSelect, selectedCompetition }: Competiti
         <div className="relative backdrop-blur-md bg-white/70 dark:bg-gray-800/70 rounded-xl border border-white/20 dark:border-gray-700/50 shadow-lg hover:shadow-xl transition-all duration-300">
           <input
             type="text"
-            placeholder={t('common.search') + ' ' + t('competition.competitionName')}
+            placeholder="搜索比赛名称 / Search Competition Name"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full px-4 py-3 pl-12 bg-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded-xl"
@@ -198,24 +317,36 @@ export function CompetitionSelector({ onSelect, selectedCompetition }: Competiti
         {/* Status Filter */}
         <GlassSelect
           id="status-filter"
-          label={t('competition.status')}
+          label={
+            <BilingualText 
+              translationKey="competition.status" 
+              chineseSize="text-sm" 
+              englishSize="text-xs"
+            />
+          }
           value={statusFilter}
           onChange={(value) => setStatusFilter(value as CompetitionStatus | 'all')}
           options={[
-            { value: 'all', label: t('competition.allStatus') },
-            { value: 'active', label: t('competition.active') },
-            { value: 'upcoming', label: t('competition.upcoming') },
+            { value: 'all', label: <BilingualText translationKey="competition.allStatus" chineseSize="text-sm" englishSize="text-xs" /> },
+            { value: 'active', label: <BilingualText translationKey="competition.active" chineseSize="text-sm" englishSize="text-xs" /> },
+            { value: 'upcoming', label: <BilingualText translationKey="competition.upcoming" chineseSize="text-sm" englishSize="text-xs" /> },
           ]}
         />
 
         {/* Region Filter */}
         <GlassSelect
           id="region-filter"
-          label={t('competition.region')}
+          label={
+            <BilingualText 
+              translationKey="competition.region" 
+              chineseSize="text-sm" 
+              englishSize="text-xs"
+            />
+          }
           value={regionFilter}
           onChange={setRegionFilter}
           options={[
-            { value: 'all', label: t('competition.allRegions') },
+            { value: 'all', label: <BilingualText translationKey="competition.allRegions" chineseSize="text-sm" englishSize="text-xs" /> },
             ...regions.map(region => ({ value: region, label: region })),
           ]}
         />
@@ -223,35 +354,47 @@ export function CompetitionSelector({ onSelect, selectedCompetition }: Competiti
         {/* Type Filter */}
         <GlassSelect
           id="type-filter"
-          label={t('competition.competitionType')}
+          label={
+            <BilingualText 
+              translationKey="competition.competitionType" 
+              chineseSize="text-sm" 
+              englishSize="text-xs"
+            />
+          }
           value={typeFilter}
           onChange={(value) => setTypeFilter(value as CompetitionType | 'all')}
           options={[
-            { value: 'all', label: t('competition.allTypes') },
-            { value: 'individual', label: t('competition.individual') },
-            { value: 'duo', label: t('competition.duo') },
-            { value: 'team', label: t('competition.team') },
-            { value: 'challenge', label: t('competition.challenge') },
+            { value: 'all', label: <BilingualText translationKey="competition.allTypes" chineseSize="text-sm" englishSize="text-xs" /> },
+            { value: 'individual', label: <BilingualText translationKey="competition.individual" chineseSize="text-sm" englishSize="text-xs" /> },
+            { value: 'duo', label: <BilingualText translationKey="competition.duo" chineseSize="text-sm" englishSize="text-xs" /> },
+            { value: 'team', label: <BilingualText translationKey="competition.team" chineseSize="text-sm" englishSize="text-xs" /> },
+            { value: 'challenge', label: <BilingualText translationKey="competition.challenge" chineseSize="text-sm" englishSize="text-xs" /> },
           ]}
         />
 
         {/* Division Filter */}
         <GlassSelect
           id="division-filter"
-          label={t('competition.division')}
+          label={
+            <BilingualText 
+              translationKey="competition.division" 
+              chineseSize="text-sm" 
+              englishSize="text-xs"
+            />
+          }
           value={divisionFilter}
           onChange={setDivisionFilter}
           options={[
-            { value: 'all', label: t('competition.allDivisions') },
-            { value: '小学组', label: t('competition.primarySchool') },
-            { value: '公开组', label: t('competition.openDivision') },
+            { value: 'all', label: <BilingualText translationKey="competition.allDivisions" chineseSize="text-sm" englishSize="text-xs" /> },
+            { value: '小学组', label: <BilingualText translationKey="competition.primarySchool" chineseSize="text-sm" englishSize="text-xs" /> },
+            { value: '公开组', label: <BilingualText translationKey="competition.openDivision" chineseSize="text-sm" englishSize="text-xs" /> },
           ]}
         />
       </div>
 
       {/* Competition Count */}
       <div className="mb-4 text-sm text-gray-600 dark:text-gray-400">
-        {t('common.found')} {competitionsWithAvailability.length} {t('competition.competitions')}
+        Found {competitionsWithAvailability.length} Competitions / 找到 {competitionsWithAvailability.length} 比赛列表
       </div>
 
       {/* Competition Grid */}
@@ -267,20 +410,19 @@ export function CompetitionSelector({ onSelect, selectedCompetition }: Competiti
       ) : (
         <div className="grid gap-4 grid-cols-1">
           {competitionsWithAvailability.map((competition) => {
-            // Determine scoring availability status
-            const isScoringCompleted = competition.status === 'active' && 
-                                      competition.available_athletes_count !== undefined && 
-                                      competition.available_athletes_count === 0;
+            // Determine scoring availability status based on judge's completion
+            const scoringStatus = judgeScoringStatus[competition.id];
+            const isScoringCompleted = scoringStatus?.completed || false;
             const canScore = competition.status === 'active' && !isScoringCompleted;
 
             return (
               <GlassCard
                 key={competition.id}
                 hoverEffect="scale"
-                onClick={() => competition.status === 'active' && onSelect(competition)}
+                onClick={() => canScore && onSelect(competition)}
                 className={`
                   text-left transition-all duration-200
-                  ${competition.status === 'active' 
+                  ${canScore
                     ? 'cursor-pointer'
                     : 'cursor-not-allowed opacity-60'
                   }
@@ -348,17 +490,30 @@ export function CompetitionSelector({ onSelect, selectedCompetition }: Competiti
                       <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                       </svg>
-                      <span>{t('judge.scoringCompleted')}</span>
+                      <BilingualText 
+                        translationKey="judge.scoringCompleted" 
+                        chineseSize="text-xs" 
+                        englishSize="text-xs"
+                      />
+                      {scoringStatus && (
+                        <span className="ml-1 text-gray-500 dark:text-gray-400">
+                          ({scoringStatus.scored_count}/{scoringStatus.total_athletes})
+                        </span>
+                      )}
                     </div>
                   ) : canScore ? (
                     <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
                       <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                       </svg>
-                      <span>{t('judge.canScore')}</span>
-                      {competition.available_athletes_count !== undefined && (
+                      <BilingualText 
+                        translationKey="judge.canScore" 
+                        chineseSize="text-xs" 
+                        englishSize="text-xs"
+                      />
+                      {scoringStatus && (
                         <span className="ml-1 text-gray-500 dark:text-gray-400">
-                          ({competition.available_athletes_count})
+                          ({scoringStatus.scored_count}/{scoringStatus.total_athletes})
                         </span>
                       )}
                     </div>
@@ -367,7 +522,11 @@ export function CompetitionSelector({ onSelect, selectedCompetition }: Competiti
                       <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clipRule="evenodd" />
                       </svg>
-                      <span>{t('judge.cannotScore')}</span>
+                      <BilingualText 
+                        translationKey="judge.cannotScore" 
+                        chineseSize="text-xs" 
+                        englishSize="text-xs"
+                      />
                     </div>
                   )}
                 </div>
@@ -379,7 +538,11 @@ export function CompetitionSelector({ onSelect, selectedCompetition }: Competiti
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
-                  <span>{t('common.selected')}</span>
+                  <BilingualText 
+                    translationKey="common.selected" 
+                    chineseSize="text-sm" 
+                    englishSize="text-xs"
+                  />
                 </div>
               )}
             </GlassCard>

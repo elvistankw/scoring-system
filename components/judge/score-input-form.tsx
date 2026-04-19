@@ -6,10 +6,12 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useTranslation } from '@/i18n/use-dictionary';
+import { BilingualText } from '@/components/shared/bilingual-text';
+import { judgeApiClient } from '@/lib/judge-api-client';
 import type { Competition } from '@/interface/competition';
 import type { Athlete } from '@/interface/athlete';
 import type { IndividualScores, DuoTeamScores, ChallengeScores, ScoreDimensions, SubmitScoreRequest } from '@/interface/score';
-import { API_ENDPOINTS, getAuthHeaders } from '@/lib/api-config';
+import type { ReactElement } from 'react';
 
 interface ScoreInputFormProps {
   competition: Competition;
@@ -21,8 +23,43 @@ export function ScoreInputForm({ competition, athlete, onSubmitSuccess }: ScoreI
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { t } = useTranslation();
   
-  // Get dimension labels from translation
-  const getDimensionLabel = (field: string): string => {
+  // Get dimension labels as BilingualText component
+  const getDimensionLabel = (field: string): ReactElement => {
+    let translationKey: string;
+    switch (field) {
+      case 'action_difficulty':
+        translationKey = 'score.actionDifficulty';
+        break;
+      case 'stage_artistry':
+        translationKey = 'score.stageArtistry';
+        break;
+      case 'action_creativity':
+        translationKey = 'score.actionCreativity';
+        break;
+      case 'action_fluency':
+        translationKey = 'score.actionFluency';
+        break;
+      case 'costume_styling':
+        translationKey = 'score.costumeStyling';
+        break;
+      case 'action_interaction':
+        translationKey = 'score.actionInteraction';
+        break;
+      default:
+        translationKey = 'common.unknown';
+    }
+    
+    return (
+      <BilingualText 
+        translationKey={translationKey}
+        chineseSize="text-sm" 
+        englishSize="text-xs"
+      />
+    );
+  };
+
+  // Get dimension labels as plain text for error messages
+  const getDimensionLabelText = (field: string): string => {
     switch (field) {
       case 'action_difficulty':
         return t('score.actionDifficulty');
@@ -125,14 +162,14 @@ export function ScoreInputForm({ competition, athlete, onSubmitSuccess }: ScoreI
     for (const field of fields) {
       const value = scores[field];
       if (value === '' || value === null || value === undefined) {
-        toast.error(`${getDimensionLabel(field)}: ${t('judge.fillAllScores')}`);
+        toast.error(`${getDimensionLabelText(field)}: ${t('judge.fillAllScores')}`);
         return false;
       }
       
       // Check if it's a valid number (including 0)
       const numValue = parseFloat(value);
       if (isNaN(numValue)) {
-        toast.error(`${getDimensionLabel(field)}: ${t('judge.invalidNumber')}`);
+        toast.error(`${getDimensionLabelText(field)}: ${t('judge.invalidNumber')}`);
         return false;
       }
     }
@@ -143,7 +180,7 @@ export function ScoreInputForm({ competition, athlete, onSubmitSuccess }: ScoreI
       const maxScore = getDimensionWeight(field);
       
       if (value < 0 || value > maxScore) {
-        toast.error(`${getDimensionLabel(field)}: ${t('judge.scoreRangeError')} 0-${maxScore}`);
+        toast.error(`${getDimensionLabelText(field)}: ${t('judge.scoreRangeError')} 0-${maxScore}`);
         return false;
       }
     }
@@ -161,10 +198,9 @@ export function ScoreInputForm({ competition, athlete, onSubmitSuccess }: ScoreI
     setIsSubmitting(true);
 
     try {
-      // Get token from localStorage
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
-        toast.error(t('auth.emailRequired'));
+      // Check if judge has active session
+      if (!judgeApiClient.hasActiveSession()) {
+        toast.error('请先选择评委身份');
         return;
       }
 
@@ -210,19 +246,8 @@ export function ScoreInputForm({ competition, athlete, onSubmitSuccess }: ScoreI
         scores: scoreData
       });
 
-      const response = await fetch(API_ENDPOINTS.scores.submit, {
-        method: 'POST',
-        headers: getAuthHeaders(token),
-        body: JSON.stringify(requestBody),
-      });
-
-      console.log('📡 Response status:', response.status);
-      const data = await response.json();
+      const data = await judgeApiClient.submitScore(requestBody);
       console.log('📡 Response data:', data);
-
-      if (!response.ok) {
-        throw new Error(data.message || t('judge.scoreSubmitted'));
-      }
 
       toast.success(t('judge.scoreSubmitted'));
       
@@ -250,8 +275,21 @@ export function ScoreInputForm({ competition, athlete, onSubmitSuccess }: ScoreI
           {athlete.name}
         </h3>
         <p className="text-sm text-gray-700 dark:text-gray-300">
-          {t('athlete.athleteNumber')}: {athlete.athlete_number}
-          {athlete.team_name && ` | ${t('athlete.teamName')}: ${athlete.team_name}`}
+          <BilingualText 
+            translationKey="athlete.athleteNumber" 
+            chineseSize="text-sm" 
+            englishSize="text-xs"
+          />: {athlete.athlete_number}
+          {athlete.team_name && ` | `}
+          {athlete.team_name && (
+            <>
+              <BilingualText 
+                translationKey="athlete.teamName" 
+                chineseSize="text-sm" 
+                englishSize="text-xs"
+              />: {athlete.team_name}
+            </>
+          )}
         </p>
         <div className="flex flex-wrap gap-3 mt-2 text-sm text-gray-600 dark:text-gray-400">
           {athlete.age && (
@@ -259,7 +297,11 @@ export function ScoreInputForm({ competition, athlete, onSubmitSuccess }: ScoreI
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              {athlete.age} {t('athlete.age')}
+              {athlete.age} <BilingualText 
+                translationKey="athlete.age" 
+                chineseSize="text-sm" 
+                englishSize="text-xs"
+              />
             </span>
           )}
           {athlete.gender && (
@@ -267,7 +309,11 @@ export function ScoreInputForm({ competition, athlete, onSubmitSuccess }: ScoreI
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
-              {t(`athlete.${athlete.gender}`)}
+              <BilingualText 
+                translationKey={`athlete.${athlete.gender}`}
+                chineseSize="text-sm" 
+                englishSize="text-xs"
+              />
             </span>
           )}
           {athlete.school && (
@@ -340,12 +386,20 @@ export function ScoreInputForm({ competition, athlete, onSubmitSuccess }: ScoreI
         "
         style={{ minHeight: '44px' }} // Touch target requirement
       >
-        {isSubmitting ? t('judge.submitting') : t('judge.submitScore')}
+        <BilingualText 
+          translationKey={isSubmitting ? 'judge.submitting' : 'judge.submitScore'}
+          chineseSize="text-lg" 
+          englishSize="text-base"
+        />
       </button>
 
       {/* Helper Text */}
       <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
-        {t('judge.scoreRangeNote')}
+        <BilingualText 
+          translationKey="judge.scoreRangeNote"
+          chineseSize="text-sm" 
+          englishSize="text-xs"
+        />
       </p>
     </form>
   );

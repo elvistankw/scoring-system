@@ -51,9 +51,16 @@ export function GoogleAuthButton({
         const data = await response.json();
         setIsAuthorized(data.data.is_authorized);
         setGoogleEmail(data.data.google_email);
+      } else if (response.status === 503) {
+        // Google OAuth is disabled, don't show error
+        setIsAuthorized(false);
+        setGoogleEmail(null);
       }
     } catch (error) {
       console.error('检查Google授权状态失败:', error);
+      // Don't show error toast for status check failures
+      setIsAuthorized(false);
+      setGoogleEmail(null);
     }
   };
 
@@ -71,6 +78,12 @@ export function GoogleAuthButton({
       });
 
       if (!response.ok) {
+        // Handle 503 Service Unavailable (Google OAuth disabled)
+        if (response.status === 503) {
+          const errorData = await response.json();
+          toast.error(errorData.message || 'Google OAuth 服务暂时不可用');
+          return;
+        }
         throw new Error('获取授权链接失败');
       }
 
@@ -100,7 +113,11 @@ export function GoogleAuthButton({
 
     } catch (error) {
       console.error('Google授权失败:', error);
-      toast.error('Google授权失败，请重试');
+      if (error instanceof Error && error.message.includes('Failed to fetch')) {
+        toast.error('无法连接到服务器，请检查网络连接');
+      } else {
+        toast.error('Google授权失败，请重试');
+      }
     } finally {
       setIsLoading(false);
     }

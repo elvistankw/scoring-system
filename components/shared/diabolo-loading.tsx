@@ -26,17 +26,26 @@ export function DiaboloLoading({ message, fullScreen = true }: DiaboloLoadingPro
     <div className={containerClass}>
       <div className="flex flex-col items-center gap-6">
         {/* Diabolo Animation Container */}
-        <div className="relative w-40 h-40">
-          {/* String */}
-          <div className="absolute top-1/2 left-0 w-full h-[2px] bg-white/30 animate-pulse"></div>
+        <div className="relative w-40 h-40 flex items-center justify-center">
+          {/* Sticks and String Container - moves together */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            {/* String - at the top of sticks */}
+            <div className="absolute top-[calc(50%-20px)] left-0 w-full h-[2px] bg-white/30 animate-pulse z-10"></div>
+            
+            {/* Left Stick - rotates from top */}
+            <div 
+              className="absolute left-0 top-[calc(50%-20px)] w-2 h-10 bg-white/60 rounded-full animate-stick-left"
+              style={{ transformOrigin: 'top center' }}
+            ></div>
+            
+            {/* Right Stick - rotates from top */}
+            <div 
+              className="absolute right-0 top-[calc(50%-20px)] w-2 h-10 bg-white/60 rounded-full animate-stick-right"
+              style={{ transformOrigin: 'top center' }}
+            ></div>
+          </div>
           
-          {/* Left Stick */}
-          <div className="absolute left-0 top-1/2 w-2 h-10 bg-white/60 rounded-full -translate-y-1/2 animate-stick-left"></div>
-          
-          {/* Right Stick */}
-          <div className="absolute right-0 top-1/2 w-2 h-10 bg-white/60 rounded-full -translate-y-1/2 animate-stick-right"></div>
-          
-          {/* Diabolo */}
+          {/* Diabolo - stays in center */}
           <div className="absolute left-1/2 top-1/2 w-10 h-10 -translate-x-1/2 -translate-y-1/2">
             {/* Spinning core */}
             <div className="w-full h-full rounded-full border-4 border-orange-400 border-t-transparent animate-spin-slow"></div>
@@ -65,13 +74,21 @@ export function DiaboloLoading({ message, fullScreen = true }: DiaboloLoadingPro
         }
 
         @keyframes stick-left {
-          0%, 100% { transform: translateY(-50%) rotate(-10deg); }
-          50% { transform: translateY(-50%) rotate(-20deg); }
+          0%, 100% { 
+            transform: rotate(-10deg);
+          }
+          50% { 
+            transform: rotate(-20deg);
+          }
         }
 
         @keyframes stick-right {
-          0%, 100% { transform: translateY(-50%) rotate(10deg); }
-          50% { transform: translateY(-50%) rotate(20deg); }
+          0%, 100% { 
+            transform: rotate(10deg);
+          }
+          50% { 
+            transform: rotate(20deg);
+          }
         }
 
         .animate-spin-slow {
