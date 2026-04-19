@@ -1,5 +1,6 @@
 // Judge Management Page
 // Requirements: Judge Identity System
+// Fixed import path
 
 import type { Metadata } from 'next';
 import { getDictionary } from '@/i18n/get-dictionary';

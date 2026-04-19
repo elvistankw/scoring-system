@@ -1,5 +1,6 @@
 // Event Management Page
 // Requirements: Admin Dashboard, Event Management
+// Fixed import path
 
 import type { Metadata } from 'next';
 import { getDictionary } from '@/i18n/get-dictionary';
