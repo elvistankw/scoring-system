@@ -3,13 +3,14 @@
 // Judge List Component
 // Requirements: Judge Identity System
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Judge } from '@/interface/judge';
 import { useJudges, useJudgeOperations } from '@/hooks/use-judges';
 import { JudgeForm } from './judge-form';
 import { JudgeCompetitionManager } from './judge-competition-manager';
 import { SkeletonCard } from '@/components/shared/loading-skeleton';
 import { BilingualText } from '@/components/shared/bilingual-text';
+import { Pagination } from '@/components/shared/pagination';
 import { useTranslation } from '@/i18n/use-dictionary';
 import { toast } from 'sonner';
 
@@ -22,6 +23,10 @@ export function JudgeList() {
   const [editingJudge, setEditingJudge] = useState<Judge | null>(null);
   const [managingCompetitionsJudge, setManagingCompetitionsJudge] = useState<Judge | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
 
   // Handle create judge
   const handleCreate = () => {
@@ -97,6 +102,13 @@ export function JudgeList() {
     if (!dateString) return t('judge.never');
     return new Date(dateString).toLocaleString();
   };
+
+  // Paginate judges
+  const paginatedJudges = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return judges.slice(startIndex, endIndex);
+  }, [judges, currentPage, itemsPerPage]);
 
   if (isLoading) {
     return <SkeletonCard />;
@@ -237,7 +249,7 @@ export function JudgeList() {
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {judges.map((judge) => (
+                {paginatedJudges.map((judge) => (
                   <tr key={judge.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
@@ -370,6 +382,23 @@ export function JudgeList() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination */}
+          {judges.length > 0 && (
+            <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+              <Pagination
+                currentPage={currentPage}
+                totalItems={judges.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+                onItemsPerPageChange={(newItemsPerPage) => {
+                  setItemsPerPage(newItemsPerPage);
+                  setCurrentPage(1);
+                }}
+                showItemsPerPage={true}
+              />
+            </div>
+          )}
         </div>
       )}
 

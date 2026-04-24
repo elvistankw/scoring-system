@@ -127,7 +127,15 @@
     "fileSavedTo": "File saved to",
     "googleDrive": " Google Drive",
     "onlineExcelCreated": "Online Excel created, new window opened",
-    "exportFailed": "Export failed, please try again"
+    "exportFailed": "Export failed, please try again",
+    "showing": "Showing",
+    "of": "of",
+    "page": "Page",
+    "itemsPerPage": "Items per page",
+    "previous": "Previous",
+    "next": "Next",
+    "goToPage": "Go to page",
+    "items": "items"
   },
   "theme": {
     "appearance": "Appearance",

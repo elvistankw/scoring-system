@@ -9,6 +9,7 @@ import type { Athlete } from '@/interface/athlete';
 import { useAthletes, addAthleteToCompetition, removeAthleteFromCompetition } from '@/hooks/use-athletes';
 import { API_ENDPOINTS } from '@/lib/api-config';
 import { AthleteForm } from './athlete-form';
+import { Pagination } from '@/components/shared/pagination';
 import { useTranslation } from '@/i18n/use-dictionary';
 
 interface CompetitionAthleteListProps {
@@ -33,6 +34,10 @@ export function CompetitionAthleteList({ competitionId, competitionType, onClose
   const [filterGender, setFilterGender] = useState<string>('all');
   const [filterAge, setFilterAge] = useState<string>('all');
   const [filterSchool, setFilterSchool] = useState<string>('all');
+  
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
   
   const { athletes: allAthletes, refresh: refreshAthletes } = useAthletes();
 
@@ -236,6 +241,13 @@ export function CompetitionAthleteList({ competitionId, competitionType, onClose
     });
   }, [competitionAthletes, filterGender, filterAge, filterSchool]);
 
+  // Paginate filtered athletes
+  const paginatedCompetitionAthletes = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredCompetitionAthletes.slice(startIndex, endIndex);
+  }, [filteredCompetitionAthletes, currentPage, itemsPerPage]);
+
   // Apply filters to available athletes (for the add athlete dropdown)
   const filteredAvailableAthletes = useMemo(() => {
     return eligibleAthletes.filter((athlete: Athlete) => {
@@ -338,6 +350,7 @@ export function CompetitionAthleteList({ competitionId, competitionType, onClose
             setFilterGender('all');
             setFilterAge('all');
             setFilterSchool('all');
+            setCurrentPage(1); // Reset to first page when clearing filters
           }}
           className="mt-3 px-3 py-1.5 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
         >
@@ -363,8 +376,9 @@ export function CompetitionAthleteList({ competitionId, competitionType, onClose
             : t('athlete.noMatchingAthletes')}
         </div>
       ) : (
-        <div className="space-y-2">
-          {filteredCompetitionAthletes.map((athlete: Athlete) => (
+        <>
+          <div className="space-y-2">
+            {paginatedCompetitionAthletes.map((athlete: Athlete) => (
             <div
               key={athlete.id}
               className="flex items-center justify-between bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4"
@@ -401,8 +415,26 @@ export function CompetitionAthleteList({ competitionId, competitionType, onClose
                 </button>
               </div>
             </div>
-          ))}
-        </div>
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {filteredCompetitionAthletes.length > 0 && (
+            <div className="mt-4">
+              <Pagination
+                currentPage={currentPage}
+                totalItems={filteredCompetitionAthletes.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+                onItemsPerPageChange={(newItemsPerPage) => {
+                  setItemsPerPage(newItemsPerPage);
+                  setCurrentPage(1); // Reset to first page when changing items per page
+                }}
+                showItemsPerPage={true}
+              />
+            </div>
+          )}
+        </>
       )}
     </>
   );

@@ -127,7 +127,15 @@
     "fileSavedTo": "文件已保存到",
     "googleDrive": "的Google Drive",
     "onlineExcelCreated": "在线Excel已创建，新窗口已打开",
-    "exportFailed": "导出失败，请重试"
+    "exportFailed": "导出失败，请重试",
+    "showing": "显示",
+    "of": "共",
+    "page": "页",
+    "itemsPerPage": "每页显示",
+    "previous": "上一页",
+    "next": "下一页",
+    "goToPage": "跳转到第",
+    "items": "条"
   },
   "theme": {
     "appearance": "外观主题",

@@ -3,13 +3,15 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { toast } from 'sonner';
+import debounce from 'lodash/debounce';
 import type { Athlete } from '@/interface/athlete';
 import type { Competition } from '@/interface/competition';
 import { useAthletes, deleteAthlete } from '@/hooks/use-athletes';
 import { useTranslation } from '@/i18n/use-dictionary';
 import { API_ENDPOINTS } from '@/lib/api-config';
+import { Pagination } from '@/components/shared/pagination';
 
 interface AthleteListProps {
   onEdit: (athlete: Athlete) => void;
@@ -21,11 +23,25 @@ export function AthleteList({ onEdit, onViewCompetitions, refreshTrigger }: Athl
   const { t } = useTranslation();
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
   const [expandedAthleteId, setExpandedAthleteId] = useState<number | null>(null);
   const [athleteCompetitions, setAthleteCompetitions] = useState<Record<number, Competition[]>>({});
   const [loadingCompetitions, setLoadingCompetitions] = useState<number | null>(null);
   const { athletes, isLoading, isError, refresh } = useAthletes();
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+
+  // Debounced search to avoid excessive filtering
+  const debouncedSetSearch = useMemo(
+    () => debounce((value: string) => {
+      setDebouncedSearchTerm(value);
+      setCurrentPage(1); // Reset to first page on search
+    }, 300),
+    []
+  );
 
   // Refresh when trigger changes
   useState(() => {
@@ -92,18 +108,31 @@ export function AthleteList({ onEdit, onViewCompetitions, refreshTrigger }: Athl
     }
   };
 
-  // Filter athletes based on search term (name, number, team, age, school)
-  const filteredAthletes = athletes.filter((athlete: Athlete) => {
-    if (!searchTerm) return true;
-    const search = searchTerm.toLowerCase();
-    return (
+  // Handle search input change with debounce
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchTerm(value);
+    debouncedSetSearch(value);
+  }, [debouncedSetSearch]);
+
+  // Filter athletes based on debounced search term (name, number, team, age, school)
+  const filteredAthletes = useMemo(() => {
+    if (!debouncedSearchTerm) return athletes;
+    const search = debouncedSearchTerm.toLowerCase();
+    return athletes.filter((athlete: Athlete) => (
       athlete.name.toLowerCase().includes(search) ||
       athlete.athlete_number.toLowerCase().includes(search) ||
       athlete.team_name?.toLowerCase().includes(search) ||
       athlete.age?.toString().includes(search) ||
       athlete.school?.toLowerCase().includes(search)
-    );
-  });
+    ));
+  }, [athletes, debouncedSearchTerm]);
+
+  // Paginate filtered athletes
+  const paginatedAthletes = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredAthletes.slice(startIndex, endIndex);
+  }, [filteredAthletes, currentPage, itemsPerPage]);
 
   if (isLoading) {
     return (
@@ -137,7 +166,7 @@ export function AthleteList({ onEdit, onViewCompetitions, refreshTrigger }: Athl
           type="text"
           placeholder={t('athlete.searchAthletes') || '搜索选手（姓名、编号、年龄、学校）'}
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={(e) => handleSearchChange(e.target.value)}
           className="w-full px-4 py-3 pl-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
         />
         <svg
@@ -155,7 +184,10 @@ export function AthleteList({ onEdit, onViewCompetitions, refreshTrigger }: Athl
         </svg>
         {searchTerm && (
           <button
-            onClick={() => setSearchTerm('')}
+            onClick={() => {
+              setSearchTerm('');
+              setDebouncedSearchTerm('');
+            }}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
             title={t('common.clear')}
           >
@@ -188,8 +220,9 @@ export function AthleteList({ onEdit, onViewCompetitions, refreshTrigger }: Athl
           {searchTerm ? t('athlete.noMatchingAthletes') : t('athlete.noAthleteData')}
         </div>
       ) : (
-        <div className="grid gap-4">
-          {filteredAthletes.map((athlete: Athlete) => (
+        <>
+          <div className="grid gap-4">
+            {paginatedAthletes.map((athlete: Athlete) => (
             <div
               key={athlete.id}
               className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
@@ -341,6 +374,16 @@ export function AthleteList({ onEdit, onViewCompetitions, refreshTrigger }: Athl
             </div>
           ))}
         </div>
+
+        {/* Pagination */}
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredAthletes.length}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+          onItemsPerPageChange={setItemsPerPage}
+        />
+      </>
       )}
     </div>
   );

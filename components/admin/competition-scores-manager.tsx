@@ -3,10 +3,11 @@
 // Competition Scores Manager - Admin view/edit scores
 // Allows administrators to view and modify athlete scores
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
 import { useAthletes } from '@/hooks/use-athletes';
 import { API_ENDPOINTS, getAuthHeaders } from '@/lib/api-config';
+import { Pagination } from '@/components/shared/pagination';
 import type { Athlete } from '@/interface/athlete';
 import type { ScoreWithDetails } from '@/interface/score';
 
@@ -23,6 +24,14 @@ export function CompetitionScoresManager({ competitionId, competitionType }: Com
   const [editingScore, setEditingScore] = useState<ScoreWithDetails | null>(null);
   const [editFormData, setEditFormData] = useState<any>({});
   const [isExporting, setIsExporting] = useState(false);
+
+  // Pagination states for athletes list
+  const [athletesPage, setAthletesPage] = useState(1);
+  const [athletesPerPage, setAthletesPerPage] = useState(20);
+
+  // Pagination states for scores list
+  const [scoresPage, setScoresPage] = useState(1);
+  const [scoresPerPage, setScoresPerPage] = useState(10);
 
   // Fetch scores for selected athlete
   const fetchAthleteScores = async (athleteId: number) => {
@@ -59,6 +68,7 @@ export function CompetitionScoresManager({ competitionId, competitionType }: Com
   const handleAthleteSelect = (athlete: Athlete) => {
     setSelectedAthlete(athlete);
     setEditingScore(null);
+    setScoresPage(1); // Reset scores pagination when selecting new athlete
     fetchAthleteScores(athlete.id);
   };
 
@@ -209,6 +219,20 @@ export function CompetitionScoresManager({ competitionId, competitionType }: Com
 
   const scoreFields = getScoreFields();
 
+  // Paginate athletes
+  const paginatedAthletes = useMemo(() => {
+    const startIndex = (athletesPage - 1) * athletesPerPage;
+    const endIndex = startIndex + athletesPerPage;
+    return athletes.slice(startIndex, endIndex);
+  }, [athletes, athletesPage, athletesPerPage]);
+
+  // Paginate scores
+  const paginatedScores = useMemo(() => {
+    const startIndex = (scoresPage - 1) * scoresPerPage;
+    const endIndex = startIndex + scoresPerPage;
+    return scores.slice(startIndex, endIndex);
+  }, [scores, scoresPage, scoresPerPage]);
+
   // Export to Excel function
   const handleExportToExcel = async () => {
     setIsExporting(true);
@@ -326,31 +350,50 @@ export function CompetitionScoresManager({ competitionId, competitionType }: Com
             暂无参赛选手
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {athletes.map((athlete: Athlete) => (
-              <button
-                key={athlete.id}
-                onClick={() => handleAthleteSelect(athlete)}
-                className={`p-4 rounded-lg border-2 transition-all text-left ${
-                  selectedAthlete?.id === athlete.id
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                }`}
-              >
-                <div className="font-semibold text-gray-900 dark:text-white">
-                  {athlete.name}
-                </div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  编号: {athlete.athlete_number}
-                </div>
-                {athlete.team_name && (
-                  <div className="text-sm text-gray-500 dark:text-gray-500">
-                    {athlete.team_name}
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {paginatedAthletes.map((athlete: Athlete) => (
+                <button
+                  key={athlete.id}
+                  onClick={() => handleAthleteSelect(athlete)}
+                  className={`p-4 rounded-lg border-2 transition-all text-left ${
+                    selectedAthlete?.id === athlete.id
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                      : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                  }`}
+                >
+                  <div className="font-semibold text-gray-900 dark:text-white">
+                    {athlete.name}
                   </div>
-                )}
-              </button>
-            ))}
-          </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    编号: {athlete.athlete_number}
+                  </div>
+                  {athlete.team_name && (
+                    <div className="text-sm text-gray-500 dark:text-gray-500">
+                      {athlete.team_name}
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {/* Athletes Pagination */}
+            {athletes.length > 0 && (
+              <div className="mt-4">
+                <Pagination
+                  currentPage={athletesPage}
+                  totalItems={athletes.length}
+                  itemsPerPage={athletesPerPage}
+                  onPageChange={setAthletesPage}
+                  onItemsPerPageChange={(newItemsPerPage) => {
+                    setAthletesPerPage(newItemsPerPage);
+                    setAthletesPage(1);
+                  }}
+                  showItemsPerPage={true}
+                />
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -372,8 +415,9 @@ export function CompetitionScoresManager({ competitionId, competitionType }: Com
               该选手还没有评分记录
             </div>
           ) : (
-            <div className="space-y-4">
-              {scores.map((score, index) => (
+            <>
+              <div className="space-y-4">
+                {paginatedScores.map((score, index) => (
                 <div
                   key={`score-${score.id}-${score.judge_id}-${index}`}
                   className="border border-gray-200 dark:border-gray-700 rounded-lg p-4"
@@ -485,6 +529,24 @@ export function CompetitionScoresManager({ competitionId, competitionType }: Com
                 </div>
               ))}
             </div>
+
+            {/* Scores Pagination */}
+            {scores.length > 0 && (
+              <div className="mt-4">
+                <Pagination
+                  currentPage={scoresPage}
+                  totalItems={scores.length}
+                  itemsPerPage={scoresPerPage}
+                  onPageChange={setScoresPage}
+                  onItemsPerPageChange={(newItemsPerPage) => {
+                    setScoresPerPage(newItemsPerPage);
+                    setScoresPage(1);
+                  }}
+                  showItemsPerPage={true}
+                />
+              </div>
+            )}
+          </>
           )}
         </div>
       )}
