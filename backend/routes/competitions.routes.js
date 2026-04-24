@@ -29,6 +29,10 @@ router.post('/:id/athletes', requireRole('admin'), competitionsController.addAth
 router.delete('/:id/athletes/:athleteId', requireRole('admin'), competitionsController.removeAthleteFromCompetition);
 router.get('/:id/athletes', competitionsController.getCompetitionAthletes);
 
+// Competition-judge assignment endpoints (Admin only)
+const { getCompetitionJudges } = require('../controllers/judges.controller');
+router.get('/:id/judges', requireRole('admin'), getCompetitionJudges);
+
 // Excel export endpoint - available to judges and admins
 router.post('/:id/export-excel', competitionsController.exportCompetitionToExcel);
 

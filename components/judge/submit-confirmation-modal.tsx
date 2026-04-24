@@ -2,34 +2,41 @@
 
 // Confirmation modal for batch score submission
 // Requirements: 14.1, 14.2, 14.3
+// Supports both individual athletes and team-based competitions
 
 import { useState } from 'react';
 import type { Competition } from '@/interface/competition';
-import type { AthleteScore } from './scoring-client';
+import type { AthleteScore, TeamScore } from './scoring-client';
 
 interface SubmitConfirmationModalProps {
-  athleteScores: AthleteScore[];
+  athleteScores?: AthleteScore[];
+  teamScores?: TeamScore[];
   competition: Competition;
   onConfirm: () => void;
   onCancel: () => void;
 }
 
 export function SubmitConfirmationModal({
-  athleteScores,
+  athleteScores = [],
+  teamScores = [],
   competition,
   onConfirm,
   onCancel,
 }: SubmitConfirmationModalProps) {
-  const completedScores = athleteScores.filter(as => as.isComplete);
-  const [expandedAthletes, setExpandedAthletes] = useState<Set<number>>(new Set());
+  const isTeamMode = competition.competition_type === 'duo' || competition.competition_type === 'team';
+  const completedScores = isTeamMode 
+    ? teamScores.filter(ts => ts.isComplete)
+    : athleteScores.filter(as => as.isComplete);
+  
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
-  const toggleExpand = (athleteId: number) => {
-    setExpandedAthletes(prev => {
+  const toggleExpand = (itemId: string) => {
+    setExpandedItems(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(athleteId)) {
-        newSet.delete(athleteId);
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId);
       } else {
-        newSet.add(athleteId);
+        newSet.add(itemId);
       }
       return newSet;
     });
@@ -47,6 +54,11 @@ export function SubmitConfirmationModal({
     };
     return labels[key] || key;
   };
+
+  // Calculate total athletes (for team mode, count all members)
+  const totalAthletes = isTeamMode
+    ? teamScores.reduce((sum, ts) => sum + ts.team.members.length, 0)
+    : completedScores.length;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -72,92 +84,215 @@ export function SubmitConfirmationModal({
               <h3 className="font-semibold text-gray-900 dark:text-gray-100">
                 📊 提交摘要 / Submission Summary
               </h3>
-              <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                {completedScores.length} 位选手 / Athletes
-              </span>
+              <div className="text-right">
+                <span className="text-2xl font-bold text-blue-600 dark:text-blue-400 block">
+                  {completedScores.length} {isTeamMode ? '个团队 / Teams' : '位选手 / Athletes'}
+                </span>
+                {isTeamMode && (
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    ({totalAthletes} 位选手 / athletes)
+                  </span>
+                )}
+              </div>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              您即将提交 {completedScores.length} 位选手的评分。提交后将无法修改。
-              <br />
-              You are about to submit scores for {completedScores.length} athletes. This action cannot be undone.
+              {isTeamMode ? (
+                <>
+                  您即将提交 {completedScores.length} 个团队（共 {totalAthletes} 位选手）的评分。提交后将无法修改。
+                  <br />
+                  You are about to submit scores for {completedScores.length} teams ({totalAthletes} athletes total). This action cannot be undone.
+                </>
+              ) : (
+                <>
+                  您即将提交 {completedScores.length} 位选手的评分。提交后将无法修改。
+                  <br />
+                  You are about to submit scores for {completedScores.length} athletes. This action cannot be undone.
+                </>
+              )}
             </p>
           </div>
 
-          {/* Athlete List */}
+          {/* Team/Athlete List */}
           <div>
             <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">
-              选手列表 / Athlete List
+              {isTeamMode ? '团队列表 / Team List' : '选手列表 / Athlete List'}
             </h3>
             <div className="space-y-2 max-h-96 overflow-y-auto">
-              {completedScores.map((athleteScore, index) => {
-                const { athlete, scores } = athleteScore;
-                const isExpanded = expandedAthletes.has(athlete.id);
+              {isTeamMode ? (
+                /* Team Mode: Show teams with members */
+                teamScores.filter(ts => ts.isComplete).map((teamScore, index) => {
+                  const { team, scores } = teamScore;
+                  const isExpanded = expandedItems.has(team.teamName);
 
-                return (
-                  <div
-                    key={athlete.id}
-                    className="bg-gray-50 dark:bg-gray-700/50 rounded-lg overflow-hidden"
-                  >
-                    {/* Athlete Header - Clickable */}
-                    <button
-                      onClick={() => toggleExpand(athlete.id)}
-                      className="w-full flex items-center justify-between p-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  return (
+                    <div
+                      key={team.teamName}
+                      className="bg-gray-50 dark:bg-gray-700/50 rounded-lg overflow-hidden"
                     >
-                      <div className="flex items-center gap-3">
-                        <span className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-semibold text-sm">
-                          {index + 1}
-                        </span>
-                        <div className="text-left">
-                          <p className="font-medium text-gray-900 dark:text-gray-100">
-                            {athlete.name}
-                          </p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            #{athlete.athlete_number}
-                            {athlete.team_name && ` - ${athlete.team_name}`}
-                          </p>
+                      {/* Team Header - Clickable */}
+                      <button
+                        onClick={() => toggleExpand(team.teamName)}
+                        className="w-full flex items-center justify-between p-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 font-semibold text-sm">
+                            {index + 1}
+                          </span>
+                          <div className="text-left">
+                            <p className="font-medium text-gray-900 dark:text-gray-100">
+                              {team.teamName}
+                            </p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              {team.members.length} 位成员 / members
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {isExpanded ? '收起 / Collapse' : '展开 / Expand'}
-                        </span>
-                        <svg 
-                          className={`w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                          fill="none" 
-                          stroke="currentColor" 
-                          viewBox="0 0 24 24"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
-                    </button>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {isExpanded ? '收起 / Collapse' : '展开 / Expand'}
+                          </span>
+                          <svg 
+                            className={`w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                            fill="none" 
+                            stroke="currentColor" 
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </div>
+                      </button>
 
-                    {/* Expanded Score Details */}
-                    {isExpanded && scores && (
-                      <div className="px-3 pb-3 space-y-2 border-t border-gray-200 dark:border-gray-600 pt-3">
-                        {Object.entries(scores).map(([key, value]) => {
-                          // Skip null/undefined values
-                          if (value === null || value === undefined) return null;
-                          
-                          return (
-                            <div 
-                              key={key}
-                              className="flex items-center justify-between py-2 px-3 bg-white dark:bg-gray-800 rounded"
-                            >
-                              <span className="text-sm text-gray-700 dark:text-gray-300">
-                                {getScoreDimensionLabel(key)}
-                              </span>
-                              <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
-                                {typeof value === 'number' ? value.toFixed(1) : value}
-                              </span>
+                      {/* Expanded Details */}
+                      {isExpanded && (
+                        <div className="px-3 pb-3 space-y-3 border-t border-gray-200 dark:border-gray-600 pt-3">
+                          {/* Team Members */}
+                          <div>
+                            <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">
+                              团队成员 / Team Members:
+                            </p>
+                            <div className="space-y-1">
+                              {team.members.map((member, idx) => (
+                                <div 
+                                  key={member.id}
+                                  className="flex items-center gap-2 text-sm bg-white dark:bg-gray-800 rounded px-2 py-1"
+                                >
+                                  <span className="flex-shrink-0 w-5 h-5 bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 rounded-full flex items-center justify-center text-xs font-medium">
+                                    {idx + 1}
+                                  </span>
+                                  <span className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded text-xs font-medium">
+                                    {member.athlete_number}
+                                  </span>
+                                  <span className="text-gray-900 dark:text-white font-medium">
+                                    {member.name}
+                                  </span>
+                                </div>
+                              ))}
                             </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                          </div>
+
+                          {/* Team Scores */}
+                          {scores && (
+                            <div>
+                              <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">
+                                团队评分 / Team Scores:
+                              </p>
+                              <div className="space-y-2">
+                                {Object.entries(scores).map(([key, value]) => {
+                                  if (value === null || value === undefined) return null;
+                                  
+                                  return (
+                                    <div 
+                                      key={key}
+                                      className="flex items-center justify-between py-2 px-3 bg-white dark:bg-gray-800 rounded"
+                                    >
+                                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                                        {getScoreDimensionLabel(key)}
+                                      </span>
+                                      <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                                        {typeof value === 'number' ? value.toFixed(1) : value}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                /* Individual Mode: Show athletes */
+                athleteScores.filter(as => as.isComplete).map((athleteScore, index) => {
+                  const { athlete, scores } = athleteScore;
+                  const isExpanded = expandedItems.has(athlete.id.toString());
+
+                  return (
+                    <div
+                      key={athlete.id}
+                      className="bg-gray-50 dark:bg-gray-700/50 rounded-lg overflow-hidden"
+                    >
+                      {/* Athlete Header - Clickable */}
+                      <button
+                        onClick={() => toggleExpand(athlete.id.toString())}
+                        className="w-full flex items-center justify-between p-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-semibold text-sm">
+                            {index + 1}
+                          </span>
+                          <div className="text-left">
+                            <p className="font-medium text-gray-900 dark:text-gray-100">
+                              {athlete.name}
+                            </p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              #{athlete.athlete_number}
+                              {athlete.team_name && ` - ${athlete.team_name}`}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {isExpanded ? '收起 / Collapse' : '展开 / Expand'}
+                          </span>
+                          <svg 
+                            className={`w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                            fill="none" 
+                            stroke="currentColor" 
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </div>
+                      </button>
+
+                      {/* Expanded Score Details */}
+                      {isExpanded && scores && (
+                        <div className="px-3 pb-3 space-y-2 border-t border-gray-200 dark:border-gray-600 pt-3">
+                          {Object.entries(scores).map(([key, value]) => {
+                            if (value === null || value === undefined) return null;
+                            
+                            return (
+                              <div 
+                                key={key}
+                                className="flex items-center justify-between py-2 px-3 bg-white dark:bg-gray-800 rounded"
+                              >
+                                <span className="text-sm text-gray-700 dark:text-gray-300">
+                                  {getScoreDimensionLabel(key)}
+                                </span>
+                                <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                                  {typeof value === 'number' ? value.toFixed(1) : value}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
 
@@ -174,6 +309,12 @@ export function SubmitConfirmationModal({
                 <div className="text-sm text-yellow-700 dark:text-yellow-300 space-y-1">
                   <p>• 请仔细检查所有评分是否正确</p>
                   <p>• Please double-check all scores are correct</p>
+                  {isTeamMode && (
+                    <>
+                      <p className="mt-2">• 团队中所有成员将获得相同的分数</p>
+                      <p>• All team members will receive the same scores</p>
+                    </>
+                  )}
                   <p className="mt-2">• 提交后如需修改，请联系技术人员</p>
                   <p>• If any modifications are needed after submission, please contact the technical staff.</p>
                 </div>

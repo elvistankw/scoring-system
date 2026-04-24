@@ -51,20 +51,15 @@ export function CompetitionSelector({ onSelect, selectedCompetition }: Competiti
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // Fetch competitions with filters - judges only see active and upcoming
+  // Fetch competitions with filters - judges only see assigned competitions
   // Only fetch if judge has active session to prevent unnecessary errors
   const shouldFetchCompetitions = Boolean(
     currentSession && 
     typeof window !== 'undefined'
   );
   
-  // Build the URL for competitions
-  let competitionsUrl = API_ENDPOINTS.competitions.list;
-  if (statusFilter !== 'all') {
-    const params = new URLSearchParams();
-    params.append('status', statusFilter);
-    competitionsUrl += `?${params.toString()}`;
-  }
+  // Build the URL for competitions - judges use my-competitions endpoint
+  let competitionsUrl = API_ENDPOINTS.judges.myCompetitions;
   
   // Use SWR directly with conditional key - IMPORTANT: null key prevents any request
   const swrKey = shouldFetchCompetitions ? competitionsUrl : null;
@@ -80,7 +75,15 @@ export function CompetitionSelector({ onSelect, selectedCompetition }: Competiti
     staticSwrConfig
   );
   
-  const competitions = competitionsData?.data?.competitions || [];
+  const allAssignedCompetitions = competitionsData?.data?.competitions || [];
+  
+  // Apply status filter on assigned competitions
+  const competitions = useMemo(() => {
+    if (statusFilter === 'all') {
+      return allAssignedCompetitions;
+    }
+    return allAssignedCompetitions.filter(c => c.status === statusFilter);
+  }, [allAssignedCompetitions, statusFilter]);
 
   // Loading state - show loading if SWR is loading
   const isLoadingData = swrLoading;

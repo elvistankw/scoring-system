@@ -22,6 +22,7 @@ export function CompetitionScoresManager({ competitionId, competitionType }: Com
   const [isLoadingScores, setIsLoadingScores] = useState(false);
   const [editingScore, setEditingScore] = useState<ScoreWithDetails | null>(null);
   const [editFormData, setEditFormData] = useState<any>({});
+  const [isExporting, setIsExporting] = useState(false);
 
   // Fetch scores for selected athlete
   const fetchAthleteScores = async (athleteId: number) => {
@@ -208,8 +209,107 @@ export function CompetitionScoresManager({ competitionId, competitionType }: Com
 
   const scoreFields = getScoreFields();
 
+  // Export to Excel function
+  const handleExportToExcel = async () => {
+    setIsExporting(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        toast.error('请先登录');
+        return;
+      }
+
+      const response = await fetch(
+        API_ENDPOINTS.competitions.exportExcel(competitionId),
+        {
+          method: 'POST',
+          headers: {
+            ...getAuthHeaders(token),
+          },
+          body: JSON.stringify({
+            export_type: 'download'
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('导出失败');
+      }
+
+      const data = await response.json();
+      
+      if (data.status === 'success' && data.data?.file_content) {
+        // Convert base64 to blob
+        const byteCharacters = atob(data.data.file_content);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { 
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+        });
+
+        // Create download link
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = data.data.filename || '评分汇总.xlsx';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+
+        toast.success('Excel 文件已下载');
+      } else {
+        throw new Error('导出数据格式错误');
+      }
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      toast.error(error instanceof Error ? error.message : '导出失败');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {/* Header with Export Button */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+          评分管理
+        </h3>
+        <button
+          onClick={handleExportToExcel}
+          disabled={isExporting || athletes.length === 0}
+          className={`
+            flex items-center gap-2 px-4 py-2 rounded-lg transition-colors
+            ${athletes.length === 0 || isExporting
+              ? 'bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-500'
+              : 'bg-green-600 text-white hover:bg-green-700'
+            }
+          `}
+          title={athletes.length === 0 ? '暂无数据可导出' : '导出评分详情到 Excel'}
+        >
+          {isExporting ? (
+            <>
+              <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <span>导出中...</span>
+            </>
+          ) : (
+            <>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span>导出 Excel</span>
+            </>
+          )}
+        </button>
+      </div>
+
       {/* Athletes List */}
       <div>
         <h3 className="text-md font-medium text-gray-900 dark:text-white mb-3">

@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { Judge } from '@/interface/judge';
 import { useJudges, useJudgeOperations } from '@/hooks/use-judges';
 import { JudgeForm } from './judge-form';
+import { JudgeCompetitionManager } from './judge-competition-manager';
 import { SkeletonCard } from '@/components/shared/loading-skeleton';
 import { BilingualText } from '@/components/shared/bilingual-text';
 import { useTranslation } from '@/i18n/use-dictionary';
@@ -19,6 +20,7 @@ export function JudgeList() {
   
   const [showForm, setShowForm] = useState(false);
   const [editingJudge, setEditingJudge] = useState<Judge | null>(null);
+  const [managingCompetitionsJudge, setManagingCompetitionsJudge] = useState<Judge | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   // Handle create judge
@@ -306,6 +308,19 @@ export function JudgeList() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-2">
+                        {/* Manage Competitions Button */}
+                        <button
+                          onClick={() => setManagingCompetitionsJudge(judge)}
+                          disabled={isSubmitting}
+                          className="px-3 py-1 bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900 dark:text-purple-200 dark:hover:bg-purple-800 rounded text-xs font-medium transition-colors disabled:opacity-50"
+                        >
+                          <BilingualText 
+                            translationKey="judge.manageCompetitions"
+                            chineseSize="text-xs" 
+                            englishSize="text-xs"
+                          />
+                        </button>
+
                         {/* Toggle Active Button */}
                         <button
                           onClick={() => handleToggleActive(judge)}
@@ -365,6 +380,14 @@ export function JudgeList() {
           onSubmit={handleFormSubmit}
           onCancel={handleFormCancel}
           isSubmitting={isSubmitting}
+        />
+      )}
+
+      {/* Judge Competition Manager Modal */}
+      {managingCompetitionsJudge && (
+        <JudgeCompetitionManager
+          judge={managingCompetitionsJudge}
+          onClose={() => setManagingCompetitionsJudge(null)}
         />
       )}
     </div>

@@ -2,7 +2,7 @@
 // Requirements: 10.3, 17.1, 17.2, 17.3, 17.4, 17.5
 
 // Base API URL - defaults to localhost for development
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 // WebSocket URL - defaults to localhost for development
 export const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:5000';
@@ -55,6 +55,9 @@ export const API_ENDPOINTS = {
     currentSession: (deviceId: string) => `${API_BASE_URL}/api/judges/current-session?deviceId=${deviceId}`,
     endSession: `${API_BASE_URL}/api/judges/end-session`,
     extendSession: `${API_BASE_URL}/api/judges/extend-session`,
+    
+    // Judge-side endpoints (Judge session authentication required)
+    myCompetitions: `${API_BASE_URL}/api/judges/my-competitions`,
     
     // Judge management (Admin authentication required)
     list: `${API_BASE_URL}/api/judges`,

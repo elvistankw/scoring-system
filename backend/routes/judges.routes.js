@@ -20,11 +20,21 @@ const {
   updateJudge,
   deleteJudge,
   toggleJudgeActive,
-  getJudgeStats
+  getJudgeStats,
+  
+  // Judge competition assignment endpoints (Admin auth required)
+  getJudgeCompetitions,
+  assignCompetitionsToJudge,
+  removeCompetitionFromJudge,
+  getCompetitionJudges,
+  
+  // Judge-side endpoints (Judge session auth required)
+  getMyAssignedCompetitions
 } = require('../controllers/judges.controller');
 
 // Import middleware
 const { authenticate, requireRole } = require('../middleware/auth');
+const { authenticateJudgeSession } = require('../middleware/judge-session');
 const { 
   validateCreateJudge, 
   validateUpdateJudge, 
@@ -73,6 +83,20 @@ router.post('/end-session', endJudgeSession);
  * @body    { sessionId: number, deviceId: string }
  */
 router.post('/extend-session', extendJudgeSession);
+
+// =============================================================================
+// JUDGE-SIDE ROUTES (Judge Session Authentication Required)
+// =============================================================================
+
+/**
+ * @route   GET /api/judges/my-competitions
+ * @desc    Get competitions assigned to current judge
+ * @access  Private (Judge session required)
+ */
+router.get('/my-competitions',
+  authenticateJudgeSession,
+  getMyAssignedCompetitions
+);
 
 // =============================================================================
 // JUDGE MANAGEMENT ROUTES (Admin Authentication Required)
@@ -149,6 +173,47 @@ router.patch('/:id/toggle-active',
   requireRole('admin'),
   validateJudgeId,
   toggleJudgeActive
+);
+
+// =============================================================================
+// JUDGE COMPETITION ASSIGNMENT ROUTES (Admin Authentication Required)
+// =============================================================================
+
+/**
+ * @route   GET /api/judges/:id/competitions
+ * @desc    Get competitions assigned to a judge
+ * @access  Private (Admin only)
+ */
+router.get('/:id/competitions',
+  authenticate,
+  requireRole('admin'),
+  validateJudgeId,
+  getJudgeCompetitions
+);
+
+/**
+ * @route   POST /api/judges/:id/competitions
+ * @desc    Assign competitions to a judge
+ * @access  Private (Admin only)
+ * @body    { competitionIds: number[], notes?: string }
+ */
+router.post('/:id/competitions',
+  authenticate,
+  requireRole('admin'),
+  validateJudgeId,
+  assignCompetitionsToJudge
+);
+
+/**
+ * @route   DELETE /api/judges/:id/competitions/:competitionId
+ * @desc    Remove competition assignment from judge
+ * @access  Private (Admin only)
+ */
+router.delete('/:id/competitions/:competitionId',
+  authenticate,
+  requireRole('admin'),
+  validateJudgeId,
+  removeCompetitionFromJudge
 );
 
 module.exports = router;

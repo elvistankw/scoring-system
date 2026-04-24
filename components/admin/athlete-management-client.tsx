@@ -122,6 +122,7 @@ export function AthleteManagementClient({ locale }: AthleteManagementClientProps
         {selectedCompetition && (
           <DynamicCompetitionAthleteList
             competitionId={selectedCompetition.id}
+            competitionType={selectedCompetition.competition_type}
             onClose={() => setSelectedCompetition(null)}
           />
         )}

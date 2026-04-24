@@ -12,17 +12,20 @@ import type { Competition } from '@/interface/competition';
 import type { Athlete } from '@/interface/athlete';
 import type { IndividualScores, DuoTeamScores, ChallengeScores, ScoreDimensions } from '@/interface/score';
 import type { ReactElement } from 'react';
+import type { Team } from '@/components/judge/team-card';
 
 interface BatchScoreInputFormProps {
   competition: Competition;
-  athlete: Athlete;
+  athlete?: Athlete;
+  team?: Team;
   existingScores: ScoreDimensions | null;
-  onScoreUpdate: (athleteId: number, scores: ScoreDimensions | null, isComplete: boolean) => void;
+  onScoreUpdate: ((athleteId: number, scores: ScoreDimensions | null, isComplete: boolean) => void) | ((teamName: string, scores: ScoreDimensions | null, isComplete: boolean) => void);
 }
 
 export function BatchScoreInputForm({ 
   competition, 
-  athlete, 
+  athlete,
+  team,
   existingScores,
   onScoreUpdate 
 }: BatchScoreInputFormProps) {
@@ -30,7 +33,11 @@ export function BatchScoreInputForm({
   const [savingFields, setSavingFields] = useState<Set<string>>(new Set());
   const saveTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const lastValidationRef = useRef<{ isValid: boolean; scoreData: ScoreDimensions | null }>({ isValid: false, scoreData: null });
-  const currentAthleteIdRef = useRef<number>(athlete.id);
+  const currentEntityIdRef = useRef<string>(team ? team.teamName : (athlete?.id.toString() || ''));
+  
+  // Determine if we're in team mode
+  const isTeamMode = !!team;
+  const entityId = team ? team.teamName : (athlete?.id || 0);
   
   // Get dimension labels as BilingualText component
   const getDimensionLabel = (field: string): ReactElement => {
@@ -152,12 +159,16 @@ export function BatchScoreInputForm({
     return baseScores;
   });
 
-  // Update scores when athlete changes (but not when existingScores updates during input)
+  // Update scores when entity changes (athlete or team)
   useEffect(() => {
-    const athleteChanged = currentAthleteIdRef.current !== athlete.id;
+    const currentEntityId = team ? team.teamName : (athlete?.id.toString() || '');
+    const entityChanged = currentEntityIdRef.current !== currentEntityId;
     
     // Update the ref
-    currentAthleteIdRef.current = athlete.id;
+    currentEntityIdRef.current = currentEntityId;
+    
+    // Only update scores if entity actually changed
+    if (!entityChanged) return;
     
     const baseScores: Record<string, string> = {};
     
@@ -179,7 +190,7 @@ export function BatchScoreInputForm({
       baseScores.action_fluency = '';
     }
     
-    // Load existing scores for this athlete
+    // Load existing scores for this entity
     if (existingScores) {
       Object.keys(baseScores).forEach(key => {
         const existingValue = (existingScores as any)[key];
@@ -189,30 +200,9 @@ export function BatchScoreInputForm({
       });
     }
     
-    // Always update scores - either because athlete changed or existingScores changed
-    setScores(prevScores => {
-      // If athlete changed, use baseScores completely
-      if (athleteChanged) {
-        return baseScores;
-      }
-      
-      // If athlete didn't change, we need to be smart about merging
-      // Only preserve form values that are different from existingScores
-      const mergedScores: Record<string, string> = { ...baseScores };
-      
-      Object.keys(prevScores).forEach(key => {
-        const prevValue = prevScores[key];
-        const existingValue = existingScores ? String((existingScores as any)[key] || '') : '';
-        
-        // If user has modified this field (different from existing), keep user's value
-        if (prevValue !== existingValue) {
-          mergedScores[key] = prevValue;
-        }
-      });
-      
-      return mergedScores;
-    });
-  }, [athlete.id, existingScores, competition.competition_type]);
+    // Entity changed, use baseScores completely
+    setScores(baseScores);
+  }, [team?.teamName, athlete?.id, competition.competition_type]); // Remove existingScores from dependencies
 
   // Get fields based on competition type
   const getFields = (): string[] => {
@@ -299,16 +289,17 @@ export function BatchScoreInputForm({
           return;
         }
 
-        // Call partial update API
-        const result = await judgeApiClient.partialScoreUpdate({
-          competition_id: competition.id,
-          athlete_id: athlete.id,
-          field: field,
-          value: numValue
-        });
+        // Call partial update API (only for individual athletes, not teams)
+        if (!isTeamMode && athlete) {
+          const result = await judgeApiClient.partialScoreUpdate({
+            competition_id: competition.id,
+            athlete_id: athlete.id,
+            field: field,
+            value: numValue
+          });
+        }
 
-        // Update parent component with current state
-        updateParentWithCurrentScores();
+        // Parent will be updated automatically by the useEffect that watches scores
 
       } catch (error) {
         console.error(`❌ Failed to save field ${field}:`, error);
@@ -331,18 +322,6 @@ export function BatchScoreInputForm({
   };
 
   // Update parent component with current scores
-  const updateParentWithCurrentScores = useCallback(() => {
-    const { isValid, scoreData } = validateScores();
-    
-    // Only update parent if validation state has actually changed
-    const lastValidation = lastValidationRef.current;
-    if (lastValidation.isValid !== isValid || 
-        JSON.stringify(lastValidation.scoreData) !== JSON.stringify(scoreData)) {
-      lastValidationRef.current = { isValid, scoreData };
-      onScoreUpdate(athlete.id, scoreData, isValid);
-    }
-  }, [athlete.id, scores]); // Remove onScoreUpdate from dependencies to prevent infinite loops
-
   const validateScores = (): { isValid: boolean; scoreData: ScoreDimensions | null } => {
     // Build partial score data from current form state (only include non-null values)
     const partialScoreData: any = {};
@@ -417,10 +396,33 @@ export function BatchScoreInputForm({
 
   // Auto-save on input change (debounced) - REMOVED
   // Now using individual field partial updates instead
+  // Update parent whenever scores change
   useEffect(() => {
-    // Update parent with current validation state
-    updateParentWithCurrentScores();
-  }, [updateParentWithCurrentScores]);
+    const { isValid, scoreData } = validateScores();
+    
+    // Only update parent if validation state has actually changed
+    const lastValidation = lastValidationRef.current;
+    if (lastValidation.isValid !== isValid || 
+        JSON.stringify(lastValidation.scoreData) !== JSON.stringify(scoreData)) {
+      lastValidationRef.current = { isValid, scoreData };
+      
+      if (isTeamMode && team) {
+        // Team mode: call with team name
+        (onScoreUpdate as (teamName: string, scores: ScoreDimensions | null, isComplete: boolean) => void)(
+          team.teamName, 
+          scoreData, 
+          isValid
+        );
+      } else if (athlete) {
+        // Individual mode: call with athlete id
+        (onScoreUpdate as (athleteId: number, scores: ScoreDimensions | null, isComplete: boolean) => void)(
+          athlete.id, 
+          scoreData, 
+          isValid
+        );
+      }
+    }
+  }, [scores, isTeamMode, team, athlete, onScoreUpdate, competition.competition_type]); // Depend on all necessary values
 
   // Cleanup timers on unmount
   useEffect(() => {
@@ -433,63 +435,140 @@ export function BatchScoreInputForm({
 
   return (
     <div className="space-y-6">
-      {/* Athlete Info */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4 rounded-lg">
-        <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">
-          {athlete.name}
-        </h3>
-        <p className="text-sm text-gray-700 dark:text-gray-300">
-          <BilingualText 
-            translationKey="athlete.athleteNumber" 
-            chineseSize="text-sm" 
-            englishSize="text-xs"
-          />: {athlete.athlete_number}
-          {athlete.team_name && ` | `}
-          {athlete.team_name && (
-            <>
+      {/* Entity Info (Athlete or Team) */}
+      {isTeamMode && team ? (
+        /* Team Info */
+        <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 p-4 rounded-lg">
+          <div className="mb-3">
+            <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">
+              {team.teamName}
+            </h3>
+            <p className="text-sm text-gray-700 dark:text-gray-300">
+              <span className="font-medium">{team.members.length}</span>{' '}
               <BilingualText 
-                translationKey="athlete.teamName" 
-                chineseSize="text-sm" 
-                englishSize="text-xs"
-              />: {athlete.team_name}
-            </>
-          )}
-        </p>
-        <div className="flex flex-wrap gap-3 mt-2 text-sm text-gray-600 dark:text-gray-400">
-          {athlete.age && (
-            <span className="flex items-center gap-1">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              {athlete.age} <BilingualText 
-                translationKey="athlete.age" 
+                translationKey="athlete.members" 
                 chineseSize="text-sm" 
                 englishSize="text-xs"
               />
-            </span>
-          )}
-          {athlete.gender && (
-            <span className="flex items-center gap-1">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
+            </p>
+          </div>
+          
+          {/* Team Members */}
+          <div className="mt-3 pt-3 border-t border-purple-200 dark:border-purple-700">
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               <BilingualText 
-                translationKey={`athlete.${athlete.gender}`}
+                translationKey="athlete.teamMembers" 
                 chineseSize="text-sm" 
                 englishSize="text-xs"
               />
-            </span>
+            </p>
+            <div className="space-y-2">
+              {team.members.map((member, index) => (
+                <div 
+                  key={member.id}
+                  className="flex items-center gap-2 text-sm bg-white/50 dark:bg-gray-800/50 p-2 rounded"
+                >
+                  <span className="flex-shrink-0 w-6 h-6 bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 rounded-full flex items-center justify-center text-xs font-medium">
+                    {index + 1}
+                  </span>
+                  <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded text-xs font-medium">
+                    {member.athlete_number}
+                  </span>
+                  <span className="text-gray-900 dark:text-white font-medium">
+                    {member.name}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          {/* School info if available */}
+          {team.members.length > 0 && team.members[0].school && (
+            <div className="mt-3 pt-3 border-t border-purple-200 dark:border-purple-700">
+              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                {team.members[0].school}
+              </div>
+            </div>
           )}
-          {athlete.school && (
-            <span className="flex items-center gap-1">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+          
+          {/* Team scoring notice */}
+          <div className="mt-3 pt-3 border-t border-purple-200 dark:border-purple-700">
+            <div className="flex items-start gap-2 text-sm text-purple-700 dark:text-purple-300 bg-purple-100/50 dark:bg-purple-900/30 p-2 rounded">
+              <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
               </svg>
-              {athlete.school}
-            </span>
-          )}
+              <span>
+                <BilingualText 
+                  translationKey="judge.teamScoringNotice" 
+                  chineseSize="text-sm" 
+                  englishSize="text-xs"
+                />
+              </span>
+            </div>
+          </div>
         </div>
-      </div>
+      ) : athlete ? (
+        /* Athlete Info */
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4 rounded-lg">
+          <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">
+            {athlete.name}
+          </h3>
+          <p className="text-sm text-gray-700 dark:text-gray-300">
+            <BilingualText 
+              translationKey="athlete.athleteNumber" 
+              chineseSize="text-sm" 
+              englishSize="text-xs"
+            />: {athlete.athlete_number}
+            {athlete.team_name && ` | `}
+            {athlete.team_name && (
+              <>
+                <BilingualText 
+                  translationKey="athlete.teamName" 
+                  chineseSize="text-sm" 
+                  englishSize="text-xs"
+                />: {athlete.team_name}
+              </>
+            )}
+          </p>
+          <div className="flex flex-wrap gap-3 mt-2 text-sm text-gray-600 dark:text-gray-400">
+            {athlete.age && (
+              <span className="flex items-center gap-1">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                {athlete.age} <BilingualText 
+                  translationKey="athlete.age" 
+                  chineseSize="text-sm" 
+                  englishSize="text-xs"
+                />
+              </span>
+            )}
+            {athlete.gender && (
+              <span className="flex items-center gap-1">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <BilingualText 
+                  translationKey={`athlete.${athlete.gender}`}
+                  chineseSize="text-sm" 
+                  englishSize="text-xs"
+                />
+              </span>
+            )}
+            {athlete.school && (
+              <span className="flex items-center gap-1">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                {athlete.school}
+              </span>
+            )}
+          </div>
+        </div>
+      ) : null}
 
       {/* Score Inputs */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

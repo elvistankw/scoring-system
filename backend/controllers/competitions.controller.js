@@ -842,10 +842,11 @@ const exportCompetitionToExcel = async (req, res, next) => {
         a.id as athlete_id,
         a.name as athlete_name,
         a.athlete_number,
+        a.school,
         a.team_name,
         s.id as score_id,
         s.judge_id,
-        u.username as judge_name,
+        COALESCE(j.display_name, u.username, 'Unknown Judge') as judge_name,
         s.action_difficulty,
         s.stage_artistry,
         s.action_creativity,
@@ -856,6 +857,7 @@ const exportCompetitionToExcel = async (req, res, next) => {
        FROM athletes a
        INNER JOIN competition_athletes ca ON a.id = ca.athlete_id
        LEFT JOIN scores s ON a.id = s.athlete_id AND s.competition_id = $1
+       LEFT JOIN judges j ON s.judge_id = j.id
        LEFT JOIN users u ON s.judge_id = u.id
        WHERE ca.competition_id = $1
        ORDER BY a.athlete_number, s.submitted_at`,
@@ -870,6 +872,7 @@ const exportCompetitionToExcel = async (req, res, next) => {
           athlete_id: row.athlete_id,
           athlete_name: row.athlete_name || '',
           athlete_number: row.athlete_number || '',
+          school: row.school || '',
           team_name: row.team_name || '',
           scores: []
         };
@@ -935,8 +938,12 @@ const exportCompetitionToExcel = async (req, res, next) => {
 
     // Create detailed scores sheet
     const detailsData = [
-      ['选手编号', '选手姓名', '团队名称', '评审', '动作难度', '舞台艺术', '动作创意', '动作流畅', '服装造型', '动作互动', '提交时间']
+      ['选手编号', '选手姓名', '学校', '团队名称', '评审', '动作难度', '舞台艺术', '动作创意', '动作流畅', '服装造型', '动作互动', '提交时间']
     ];
+
+    // Track merge ranges for athlete_number and athlete_name columns
+    const mergeRanges = [];
+    let currentRow = 1; // Start from row 1 (0 is header)
 
     Object.values(athletesData).forEach(athlete => {
       if (athlete.scores.length === 0) {
@@ -944,6 +951,7 @@ const exportCompetitionToExcel = async (req, res, next) => {
         detailsData.push([
           safeString(athlete.athlete_number),
           safeString(athlete.athlete_name),
+          safeString(athlete.school),
           safeString(athlete.team_name),
           '暂无评分',
           '',
@@ -954,12 +962,16 @@ const exportCompetitionToExcel = async (req, res, next) => {
           '',
           ''
         ]);
+        currentRow++;
       } else {
-        // Athlete with scores
+        // Athlete with scores - need to merge cells if multiple scores
+        const startRow = currentRow;
+        
         athlete.scores.forEach(score => {
           detailsData.push([
             safeString(athlete.athlete_number),
             safeString(athlete.athlete_name),
+            safeString(athlete.school),
             safeString(athlete.team_name),
             safeString(score.judge_name),
             score.action_difficulty !== null ? score.action_difficulty : '',
@@ -970,16 +982,34 @@ const exportCompetitionToExcel = async (req, res, next) => {
             score.action_interaction !== null ? score.action_interaction : '',
             score.submitted_at ? new Date(score.submitted_at).toLocaleString('zh-CN') : ''
           ]);
+          currentRow++;
         });
+
+        // If athlete has multiple scores, add merge ranges for athlete_number and athlete_name
+        if (athlete.scores.length > 1) {
+          const endRow = currentRow - 1;
+          // Merge 选手编号 (column A, index 0)
+          mergeRanges.push({ s: { r: startRow, c: 0 }, e: { r: endRow, c: 0 } });
+          // Merge 选手姓名 (column B, index 1)
+          mergeRanges.push({ s: { r: startRow, c: 1 }, e: { r: endRow, c: 1 } });
+          // Merge 学校 (column C, index 2)
+          mergeRanges.push({ s: { r: startRow, c: 2 }, e: { r: endRow, c: 2 } });
+        }
       }
     });
 
     const detailsSheet = XLSX.utils.aoa_to_sheet(detailsData);
     
+    // Apply merge ranges
+    if (mergeRanges.length > 0) {
+      detailsSheet['!merges'] = mergeRanges;
+    }
+    
     // Set column widths for details sheet
     detailsSheet['!cols'] = [
       { width: 10 }, // 选手编号
       { width: 15 }, // 选手姓名
+      { width: 20 }, // 学校
       { width: 15 }, // 团队名称
       { width: 12 }, // 评审
       { width: 10 }, // 动作难度
@@ -1028,8 +1058,8 @@ const exportCompetitionToExcel = async (req, res, next) => {
     
     XLSX.utils.book_append_sheet(workbook, statsSheet, '统计信息');
 
-    // Generate safe filename
-    const safeFilename = `${competition.name.replace(/[^\w\s-]/g, '').trim()}_评分汇总_${Date.now()}`;
+    // Generate safe filename (preserve Chinese characters)
+    const safeFilename = `${competition.name.replace(/[<>:"/\\|?*]/g, '').trim()}_评分汇总`;
 
     // Handle different export types
     switch (export_type) {

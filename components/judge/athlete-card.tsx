@@ -2,7 +2,9 @@
 
 // Athlete card component for judge scoring interface
 // Requirements: 7.2, 7.3, 12.1, 12.2, 12.3, 12.4, 12.5
+// Performance optimized with React.memo
 
+import { memo } from 'react';
 import type { Athlete } from '@/interface/athlete';
 import { useTranslation } from '@/i18n/use-dictionary';
 import { BilingualText } from '@/components/shared/bilingual-text';
@@ -13,7 +15,7 @@ interface AthleteCardProps {
   isSelected: boolean;
 }
 
-export function AthleteCard({ athlete, onSelect, isSelected }: AthleteCardProps) {
+const AthleteCardComponent = ({ athlete, onSelect, isSelected }: AthleteCardProps) => {
   const { t } = useTranslation();
 
   return (
@@ -70,4 +72,13 @@ export function AthleteCard({ athlete, onSelect, isSelected }: AthleteCardProps)
       </div>
     </button>
   );
-}
+};
+
+// Memoize component to prevent unnecessary re-renders
+export const AthleteCard = memo(AthleteCardComponent, (prevProps, nextProps) => {
+  // Only re-render if athlete ID or selection state changes
+  return (
+    prevProps.athlete.id === nextProps.athlete.id &&
+    prevProps.isSelected === nextProps.isSelected
+  );
+});

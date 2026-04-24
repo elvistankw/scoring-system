@@ -348,20 +348,21 @@ const getScores = async (req, res, next) => {
     const { competition_id, athlete_id, judge_id } = req.query;
 
     // Build dynamic query based on provided filters
-    // Join with both users and judge_sessions to support both admin and judge logins
+    // Join with judges table to get display_name, and with users/judge_sessions for auth
     let query = `
-      SELECT 
+      SELECT DISTINCT ON (s.id)
         s.*,
         a.name as athlete_name,
         a.athlete_number,
-        COALESCE(u.username, js.judge_name) as judge_name,
+        COALESCE(j.display_name, u.username, js.judge_name, 'Unknown Judge') as judge_name,
         c.competition_type,
         c.name as competition_name,
         c.region
       FROM scores s
       INNER JOIN athletes a ON s.athlete_id = a.id
+      LEFT JOIN judges j ON s.judge_id = j.id
       LEFT JOIN users u ON s.judge_id = u.id
-      LEFT JOIN judge_sessions js ON s.judge_id = js.judge_id
+      LEFT JOIN judge_sessions js ON s.judge_id = js.judge_id AND js.ended_at IS NULL
       INNER JOIN competitions c ON s.competition_id = c.id
       WHERE 1=1
     `;
@@ -387,7 +388,7 @@ const getScores = async (req, res, next) => {
       paramIndex++;
     }
 
-    query += ' ORDER BY s.submitted_at DESC';
+    query += ' ORDER BY s.id, s.submitted_at DESC';
 
     const result = await db.query(query, params);
 
@@ -415,19 +416,20 @@ const getScoresByCompetition = async (req, res, next) => {
     const { competitionId } = req.params;
     const { athlete_id, judge_id } = req.query;
 
-    // Join with both users and judge_sessions to support both admin and judge logins
+    // Join with judges table to get display_name, and with users/judge_sessions for auth
     let query = `
-      SELECT 
+      SELECT DISTINCT ON (s.id)
         s.*,
         a.name as athlete_name,
         a.athlete_number,
-        COALESCE(u.username, js.judge_name) as judge_name,
+        COALESCE(j.display_name, u.username, js.judge_name, 'Unknown Judge') as judge_name,
         c.competition_type,
         c.name as competition_name
       FROM scores s
       INNER JOIN athletes a ON s.athlete_id = a.id
+      LEFT JOIN judges j ON s.judge_id = j.id
       LEFT JOIN users u ON s.judge_id = u.id
-      LEFT JOIN judge_sessions js ON s.judge_id = js.judge_id
+      LEFT JOIN judge_sessions js ON s.judge_id = js.judge_id AND js.ended_at IS NULL
       INNER JOIN competitions c ON s.competition_id = c.id
       WHERE s.competition_id = $1
     `;
@@ -447,7 +449,7 @@ const getScoresByCompetition = async (req, res, next) => {
       paramIndex++;
     }
 
-    query += ' ORDER BY s.submitted_at DESC';
+    query += ' ORDER BY s.id, s.submitted_at DESC';
 
     const result = await db.query(query, params);
 
@@ -491,7 +493,7 @@ const getLatestScore = async (req, res, next) => {
 
     // Fallback to database if cache miss
     const query = `
-      SELECT 
+      SELECT DISTINCT ON (s.id)
         s.*,
         a.name as athlete_name,
         a.athlete_number,
@@ -1350,6 +1352,15 @@ module.exports = {
   validateScoreFields,
   COMPETITION_TYPE_RULES
 };
+
+
+
+
+
+
+
+
+
 
 
 

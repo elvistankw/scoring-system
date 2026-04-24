@@ -181,12 +181,15 @@ export function BilingualText({
       'athlete.male': { zh: '男', en: 'Male' },
       'athlete.female': { zh: '女', en: 'Female' },
       'athlete.athletes': { zh: '选手', en: 'Athletes' },
+      'athlete.members': { zh: '位成员', en: 'Members' },
+      'athlete.teamMembers': { zh: '团队成员', en: 'Team Members' },
       'athlete.filterByRegion': { zh: '按赛区筛选', en: 'Filter by Region' },
       // Judge sorting translations
       'judge.sortBy': { zh: '排序方式', en: 'Sort By' },
       'judge.sortByNumber': { zh: '按编号', en: 'By Number' },
       'judge.sortByName': { zh: '按姓名', en: 'By Name' },
       'judge.sortByTeam': { zh: '按团队', en: 'By Team' },
+      'judge.teamScoringNotice': { zh: '评分将应用于所有团队成员', en: 'Scores will be applied to all team members' },
       'judge.code': { zh: '评委代码', en: 'Judge Code' },
       // Score dimension translations
       'score.actionDifficulty': { zh: '动作难度', en: 'Action Difficulty' },

@@ -548,3 +548,54 @@ html {
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch; /* iOS 平滑滚动 */
 }
+
+
+/* ========================================
+   Performance Optimizations - 性能优化
+   ======================================== */
+
+/* GPU acceleration for cards and interactive elements */
+.athlete-card,
+.team-card,
+[class*="Card"],
+[class*="-card"] {
+  /* Enable GPU acceleration */
+  will-change: transform, opacity;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  
+  /* Use transform instead of top/left for animations */
+  transition: transform 200ms ease-out, opacity 200ms ease-out;
+}
+
+/* Optimize hover effects - use transform instead of margin/padding */
+.athlete-card:hover,
+.team-card:hover,
+[class*="Card"]:hover {
+  transform: translateY(-2px) translateZ(0);
+}
+
+/* Avoid animating expensive properties like box-shadow */
+.athlete-card.selected,
+.team-card.selected {
+  /* Use static box-shadow, don't animate it */
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.5);
+}
+
+/* Optimize scrolling performance */
+.overflow-y-auto,
+.overflow-x-auto,
+[class*="overflow"] {
+  /* Enable smooth scrolling with GPU */
+  -webkit-overflow-scrolling: touch;
+  will-change: scroll-position;
+}
+
+/* Reduce paint operations for frequently updated elements */
+.animate-spin,
+.animate-pulse,
+[class*="animate-"] {
+  will-change: transform, opacity;
+  transform: translateZ(0);
+}

@@ -3,7 +3,7 @@
 // Judge scoring page client component - Batch scoring with confirmation modal
 // Requirements: 3.1, 3.2, 3.3, 4.1, 4.2, 4.3, 5.1, 5.2, 5.3, 7.2, 7.3, 7.4, 12.1, 12.2, 12.3, 12.4, 12.5, 13.1, 13.2, 13.3, 13.5, 14.1, 14.2, 14.3, 15.1
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { useAthletes } from '@/hooks/use-athletes';
@@ -11,6 +11,7 @@ import { useJudgeSession } from '@/hooks/use-judge-session';
 import { useTranslation } from '@/i18n/use-dictionary';
 import { judgeApiClient } from '@/lib/judge-api-client';
 import { DynamicAthleteCard } from '@/lib/dynamic-imports';
+import { TeamCard, type Team } from '@/components/judge/team-card';
 import { measurePageLoad } from '@/lib/performance-monitor';
 import { BackButton } from '@/components/shared/back-button';
 import { BilingualText } from '@/components/shared/bilingual-text';
@@ -32,12 +33,19 @@ export interface AthleteScore {
   isComplete: boolean;
 }
 
+export interface TeamScore {
+  team: Team;
+  scores: ScoreDimensions | null;
+  isComplete: boolean;
+}
+
 export default function ScoringPageClient() {
   const router = useRouter();
   const { t } = useTranslation();
   const { currentSession, loadingSession } = useJudgeSession();
   const [selectedCompetition, setSelectedCompetition] = useState<Competition | null>(null);
   const [selectedAthlete, setSelectedAthlete] = useState<Athlete | null>(null);
+  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [locale, setLocale] = useState('zh');
   const [sortField, setSortField] = useState<SortField>('number');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
@@ -48,8 +56,17 @@ export default function ScoringPageClient() {
   // Batch scoring state - stores scores for all athletes
   const [athleteScores, setAthleteScores] = useState<Map<number, AthleteScore>>(new Map());
   
+  // Team scoring state - stores scores for all teams (duo/team competitions)
+  const [teamScores, setTeamScores] = useState<Map<string, TeamScore>>(new Map());
+  
   // Ref for scoring section to enable auto-scroll
   const scoringSectionRef = useRef<HTMLDivElement>(null);
+  
+  // Throttled localStorage save function (saves at most once every 2 seconds)
+  const throttledSaveToLocalStorage = useRef<{
+    athleteScores: NodeJS.Timeout | null;
+    teamScores: NodeJS.Timeout | null;
+  }>({ athleteScores: null, teamScores: null });
   
   // Fetch athletes for selected competition (all athletes, not excluding scored ones)
   const { athletes, isLoading: athletesLoading, refresh: refreshAthletes } = useAthletes(
@@ -96,13 +113,43 @@ export default function ScoringPageClient() {
     return sorted;
   }, [athletes, sortField, sortOrder]);
 
-  // Calculate completion stats
+  // Group athletes by team for duo/team competitions
+  const groupedTeams = useMemo<Team[]>(() => {
+    if (!selectedCompetition || (selectedCompetition.competition_type !== 'duo' && selectedCompetition.competition_type !== 'team')) {
+      return [];
+    }
+
+    const teamsMap = new Map<string, Athlete[]>();
+    
+    sortedAthletes.forEach(athlete => {
+      if (athlete.team_name && athlete.team_name.trim() !== '') {
+        if (!teamsMap.has(athlete.team_name)) {
+          teamsMap.set(athlete.team_name, []);
+        }
+        teamsMap.get(athlete.team_name)!.push(athlete);
+      }
+    });
+    
+    return Array.from(teamsMap.entries()).map(([teamName, members]) => ({
+      teamName,
+      members: members.sort((a, b) => a.athlete_number.localeCompare(b.athlete_number, undefined, { numeric: true }))
+    }));
+  }, [sortedAthletes, selectedCompetition]);
+
+  // Calculate completion stats (for duo/team: by teams, for individual/challenge: by athletes)
   const completionStats = useMemo(() => {
-    const total = athletes.length;
-    const completed = Array.from(athleteScores.values()).filter(as => as.isComplete).length;
-    const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
-    return { total, completed, percentage };
-  }, [athletes, athleteScores]);
+    if (selectedCompetition && (selectedCompetition.competition_type === 'duo' || selectedCompetition.competition_type === 'team')) {
+      const total = groupedTeams.length;
+      const completed = Array.from(teamScores.values()).filter(ts => ts.isComplete).length;
+      const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+      return { total, completed, percentage };
+    } else {
+      const total = athletes.length;
+      const completed = Array.from(athleteScores.values()).filter(as => as.isComplete).length;
+      const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+      return { total, completed, percentage };
+    }
+  }, [athletes, athleteScores, groupedTeams, teamScores, selectedCompetition]);
 
   const handleSortChange = (field: SortField) => {
     if (sortField === field) {
@@ -113,10 +160,65 @@ export default function ScoringPageClient() {
     }
   };
 
+  // Memoized athlete select handler
+  const handleAthleteSelect = useCallback((athlete: Athlete) => {
+    setSelectedAthlete(athlete);
+    setSelectedTeam(null);
+    
+    setTimeout(() => {
+      if (scoringSectionRef.current) {
+        scoringSectionRef.current.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        });
+      }
+    }, 100);
+  }, []);
+
+  // Memoized team select handler
+  const handleTeamSelect = useCallback((team: Team) => {
+    setSelectedTeam(team);
+    setSelectedAthlete(null);
+    
+    setTimeout(() => {
+      if (scoringSectionRef.current) {
+        scoringSectionRef.current.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        });
+      }
+    }, 100);
+  }, []);
+
+  // Memoized score update handler
+  const handleScoreUpdate = useCallback((athleteId: number, scores: ScoreDimensions | null, isComplete: boolean) => {
+    setAthleteScores(prev => {
+      const athlete = athletes.find((a: Athlete) => a.id === athleteId);
+      if (!athlete) return prev;
+
+      const newMap = new Map(prev);
+      newMap.set(athleteId, { athlete, scores, isComplete });
+      return newMap;
+    });
+  }, [athletes]);
+
+  // Memoized team score update handler
+  const handleTeamScoreUpdate = useCallback((teamName: string, scores: ScoreDimensions | null, isComplete: boolean) => {
+    setTeamScores(prev => {
+      const team = groupedTeams.find(t => t.teamName === teamName);
+      if (!team) return prev;
+
+      const newMap = new Map(prev);
+      newMap.set(teamName, { team, scores, isComplete });
+      return newMap;
+    });
+  }, [groupedTeams]);
+
   // Load cached scores from localStorage on mount
   useEffect(() => {
     if (!selectedCompetition || !currentSession) return;
     
+    // Load athlete scores cache
     const cacheKey = `scores_${selectedCompetition.id}_${currentSession.judge_id}`;
     const cached = localStorage.getItem(cacheKey);
     
@@ -132,7 +234,30 @@ export default function ScoringPageClient() {
         setAthleteScores(restoredMap);
         toast.success('已恢复缓存的评分数据 / Cached scores restored');
       } catch (error) {
-        console.error('Failed to restore cached scores:', error);
+        console.error('Failed to restore cached athlete scores:', error);
+      }
+    }
+    
+    // Load team scores cache
+    const teamCacheKey = `team_scores_${selectedCompetition.id}_${currentSession.judge_id}`;
+    const teamCached = localStorage.getItem(teamCacheKey);
+    
+    if (teamCached) {
+      try {
+        const parsedTeamCache = JSON.parse(teamCached);
+        const restoredTeamMap = new Map<string, TeamScore>();
+        
+        Object.entries(parsedTeamCache).forEach(([teamName, teamScore]) => {
+          restoredTeamMap.set(teamName, teamScore as TeamScore);
+        });
+        
+        setTeamScores(restoredTeamMap);
+        if (!cached) {
+          // Only show toast if we didn't already show it for athlete scores
+          toast.success('已恢复缓存的团队评分数据 / Cached team scores restored');
+        }
+      } catch (error) {
+        console.error('Failed to restore cached team scores:', error);
       }
     }
   }, [selectedCompetition, currentSession]);
@@ -225,19 +350,60 @@ export default function ScoringPageClient() {
     }
   };
 
-  // Save scores to localStorage whenever they change
+  // Save scores to localStorage whenever they change (throttled to every 2 seconds)
   useEffect(() => {
-    if (!selectedCompetition || !currentSession || athleteScores.size === 0) return;
+    if (!selectedCompetition || !currentSession) return;
     
-    const cacheKey = `scores_${selectedCompetition.id}_${currentSession.judge_id}`;
-    const cacheData = Object.fromEntries(athleteScores);
-    
-    try {
-      localStorage.setItem(cacheKey, JSON.stringify(cacheData));
-    } catch (error) {
-      console.error('Failed to cache scores:', error);
+    // Save athlete scores (throttled)
+    if (athleteScores.size > 0) {
+      // Clear existing timer
+      if (throttledSaveToLocalStorage.current.athleteScores) {
+        clearTimeout(throttledSaveToLocalStorage.current.athleteScores);
+      }
+      
+      // Set new timer
+      throttledSaveToLocalStorage.current.athleteScores = setTimeout(() => {
+        const cacheKey = `scores_${selectedCompetition.id}_${currentSession.judge_id}`;
+        const cacheData = Object.fromEntries(athleteScores);
+        
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+        } catch (error) {
+          console.error('Failed to cache athlete scores:', error);
+        }
+      }, 2000); // 2 second throttle
     }
-  }, [athleteScores, selectedCompetition, currentSession]);
+    
+    // Save team scores (throttled)
+    if (teamScores.size > 0) {
+      // Clear existing timer
+      if (throttledSaveToLocalStorage.current.teamScores) {
+        clearTimeout(throttledSaveToLocalStorage.current.teamScores);
+      }
+      
+      // Set new timer
+      throttledSaveToLocalStorage.current.teamScores = setTimeout(() => {
+        const teamCacheKey = `team_scores_${selectedCompetition.id}_${currentSession.judge_id}`;
+        const teamCacheData = Object.fromEntries(teamScores);
+        
+        try {
+          localStorage.setItem(teamCacheKey, JSON.stringify(teamCacheData));
+        } catch (error) {
+          console.error('Failed to cache team scores:', error);
+        }
+      }, 2000); // 2 second throttle
+    }
+    
+    // Cleanup function
+    return () => {
+      if (throttledSaveToLocalStorage.current.athleteScores) {
+        clearTimeout(throttledSaveToLocalStorage.current.athleteScores);
+      }
+      if (throttledSaveToLocalStorage.current.teamScores) {
+        clearTimeout(throttledSaveToLocalStorage.current.teamScores);
+      }
+    };
+  }, [athleteScores, teamScores, selectedCompetition, currentSession]);
 
   // Measure page load performance
   useEffect(() => {
@@ -279,30 +445,6 @@ export default function ScoringPageClient() {
     }
   }, [currentSession, loadingSession, router, locale]); // 添加 loadingSession 到依赖数组
 
-  const handleAthleteSelect = (athlete: Athlete) => {
-    setSelectedAthlete(athlete);
-    
-    setTimeout(() => {
-      if (scoringSectionRef.current) {
-        scoringSectionRef.current.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start',
-        });
-      }
-    }, 100);
-  };
-
-  const handleScoreUpdate = (athleteId: number, scores: ScoreDimensions | null, isComplete: boolean) => {
-    const athlete = athletes.find((a: Athlete) => a.id === athleteId);
-    if (!athlete) return;
-
-    setAthleteScores(prev => {
-      const newMap = new Map(prev);
-      newMap.set(athleteId, { athlete, scores, isComplete });
-      return newMap;
-    });
-  };
-
   const handleSubmitAll = () => {
     // Check if all athletes have been scored
     if (completionStats.completed < completionStats.total) {
@@ -327,24 +469,51 @@ export default function ScoringPageClient() {
         return;
       }
 
-      // Submit all scores in batch
-      const submissions = Array.from(athleteScores.values())
-        .filter(as => as.isComplete && as.scores)
-        .map(as => ({
-          competition_id: selectedCompetition.id,
-          athlete_id: as.athlete.id,
-          scores: as.scores!,
-        }));
+      let submissions: any[] = [];
+
+      // For duo/team competitions: submit team scores (same score for all team members)
+      if (selectedCompetition.competition_type === 'duo' || selectedCompetition.competition_type === 'team') {
+        for (const [teamName, teamScore] of teamScores.entries()) {
+          if (teamScore.isComplete && teamScore.scores) {
+            // Add submission for each team member with the same scores
+            for (const member of teamScore.team.members) {
+              submissions.push({
+                competition_id: selectedCompetition.id,
+                athlete_id: member.id,
+                scores: teamScore.scores,
+              });
+            }
+          }
+        }
+      } else {
+        // For individual/challenge competitions: submit individual scores
+        submissions = Array.from(athleteScores.values())
+          .filter(as => as.isComplete && as.scores)
+          .map(as => ({
+            competition_id: selectedCompetition.id,
+            athlete_id: as.athlete.id,
+            scores: as.scores!,
+          }));
+      }
 
       const result = await judgeApiClient.batchSubmitScores({ submissions });
 
-      toast.success(`成功提交 ${submissions.length} 个选手的评分 / Successfully submitted scores for ${submissions.length} athletes`);
+      const entityType = (selectedCompetition.competition_type === 'duo' || selectedCompetition.competition_type === 'team') ? '团队' : '选手';
+      const entityCount = (selectedCompetition.competition_type === 'duo' || selectedCompetition.competition_type === 'team') 
+        ? teamScores.size 
+        : submissions.length;
+      
+      toast.success(`成功提交 ${entityCount} 个${entityType}的评分 / Successfully submitted scores for ${entityCount} ${entityType === '团队' ? 'teams' : 'athletes'}`);
       
       // Clear cache and state
       const cacheKey = `scores_${selectedCompetition.id}_${currentSession.judge_id}`;
+      const teamCacheKey = `team_scores_${selectedCompetition.id}_${currentSession.judge_id}`;
       localStorage.removeItem(cacheKey);
+      localStorage.removeItem(teamCacheKey);
       setAthleteScores(new Map());
+      setTeamScores(new Map());
       setSelectedAthlete(null);
+      setSelectedTeam(null);
       
       // Refresh athletes list
       refreshAthletes();
@@ -365,7 +534,7 @@ export default function ScoringPageClient() {
 
   const handleBackToDashboard = () => {
     // Warn if there are unsaved scores
-    if (athleteScores.size > 0) {
+    if (athleteScores.size > 0 || teamScores.size > 0) {
       setShowLeaveModal(true);
       return;
     }
@@ -576,27 +745,46 @@ export default function ScoringPageClient() {
               </div>
             ) : (
               <div className="space-y-3 max-h-[600px] overflow-y-auto">
-                {sortedAthletes.map((athlete: Athlete) => {
-                  const athleteScore = athleteScores.get(athlete.id);
-                  const isScored = athleteScore?.isComplete || false;
-                  
-                  return (
-                    <div key={athlete.id} className="relative">
-                      <DynamicAthleteCard
-                        athlete={athlete}
-                        onSelect={() => handleAthleteSelect(athlete)}
-                        isSelected={selectedAthlete?.id === athlete.id}
+                {/* Duo/Team competitions: Show team cards */}
+                {(selectedCompetition.competition_type === 'duo' || selectedCompetition.competition_type === 'team') ? (
+                  groupedTeams.map((team: Team) => {
+                    const teamScore = teamScores.get(team.teamName);
+                    const isScored = teamScore?.isComplete || false;
+                    
+                    return (
+                      <TeamCard
+                        key={team.teamName}
+                        team={team}
+                        onSelect={() => handleTeamSelect(team)}
+                        isSelected={selectedTeam?.teamName === team.teamName}
+                        isScored={isScored}
                       />
-                      {isScored && (
-                        <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1">
-                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                ) : (
+                  /* Individual/Challenge competitions: Show athlete cards */
+                  sortedAthletes.map((athlete: Athlete) => {
+                    const athleteScore = athleteScores.get(athlete.id);
+                    const isScored = athleteScore?.isComplete || false;
+                    
+                    return (
+                      <div key={athlete.id} className="relative">
+                        <DynamicAthleteCard
+                          athlete={athlete}
+                          onSelect={() => handleAthleteSelect(athlete)}
+                          isSelected={selectedAthlete?.id === athlete.id}
+                        />
+                        {isScored && (
+                          <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1">
+                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
               </div>
             )}
           </GlassCard>
@@ -630,6 +818,13 @@ export default function ScoringPageClient() {
                     </p>
                   </div>
                 </div>
+              ) : selectedTeam ? (
+                <BatchScoreInputForm
+                  competition={selectedCompetition}
+                  team={selectedTeam}
+                  existingScores={teamScores.get(selectedTeam.teamName)?.scores || null}
+                  onScoreUpdate={(teamName: string, scores: ScoreDimensions | null, isComplete: boolean) => handleTeamScoreUpdate(teamName, scores, isComplete)}
+                />
               ) : selectedAthlete ? (
                 <BatchScoreInputForm
                   competition={selectedCompetition}
@@ -695,6 +890,7 @@ export default function ScoringPageClient() {
       {showConfirmModal && (
         <SubmitConfirmationModal
           athleteScores={Array.from(athleteScores.values())}
+          teamScores={Array.from(teamScores.values())}
           competition={selectedCompetition}
           onConfirm={handleConfirmSubmit}
           onCancel={() => setShowConfirmModal(false)}

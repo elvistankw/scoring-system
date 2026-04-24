@@ -741,6 +741,293 @@ const getJudgeStats = async (req, res, next) => {
   }
 };
 
+/**
+ * Get competitions assigned to a judge (Admin only)
+ * GET /api/judges/:id/competitions
+ */
+const getJudgeCompetitions = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    console.log(`🔍 Getting competitions for judge ${id}`);
+
+    // Check if judge exists
+    const judgeCheck = await db.query('SELECT id, name, display_name FROM judges WHERE id = $1', [id]);
+    if (judgeCheck.rows.length === 0) {
+      return next(new AppError('Judge not found', 404));
+    }
+
+    const query = `
+      SELECT 
+        c.id,
+        c.name,
+        c.competition_type,
+        c.region,
+        c.status,
+        c.start_date,
+        c.end_date,
+        jc.assigned_at,
+        jc.notes,
+        u.username as assigned_by_username
+      FROM judge_competitions jc
+      JOIN competitions c ON jc.competition_id = c.id
+      LEFT JOIN users u ON jc.assigned_by = u.id
+      WHERE jc.judge_id = $1
+      ORDER BY c.start_date DESC, c.name ASC
+    `;
+
+    const result = await db.query(query, [id]);
+
+    console.log(`✅ Found ${result.rows.length} competitions for judge ${id}`);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        judge: judgeCheck.rows[0],
+        competitions: result.rows,
+        total: result.rows.length
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Get judge competitions error:', error);
+    next(error);
+  }
+};
+
+/**
+ * Assign competitions to a judge (Admin only)
+ * POST /api/judges/:id/competitions
+ * Body: { competitionIds: [1, 2, 3], notes?: string }
+ */
+const assignCompetitionsToJudge = async (req, res, next) => {
+  const client = await db.getClient();
+  
+  try {
+    const { id } = req.params;
+    const { competitionIds, notes } = req.body;
+    const adminId = req.user.id;
+
+    console.log(`🔍 Assigning competitions to judge ${id}:`, competitionIds);
+
+    // Validate input
+    if (!Array.isArray(competitionIds) || competitionIds.length === 0) {
+      return next(new AppError('Competition IDs array is required', 400));
+    }
+
+    // Check if judge exists
+    const judgeCheck = await client.query('SELECT id, name FROM judges WHERE id = $1', [id]);
+    if (judgeCheck.rows.length === 0) {
+      return next(new AppError('Judge not found', 404));
+    }
+
+    await client.query('BEGIN');
+
+    const assignments = [];
+    const errors = [];
+
+    for (const competitionId of competitionIds) {
+      try {
+        // Check if competition exists
+        const compCheck = await client.query('SELECT id, name FROM competitions WHERE id = $1', [competitionId]);
+        if (compCheck.rows.length === 0) {
+          errors.push({ competitionId, error: 'Competition not found' });
+          continue;
+        }
+
+        // Insert or update assignment
+        const assignQuery = `
+          INSERT INTO judge_competitions (judge_id, competition_id, assigned_by, notes)
+          VALUES ($1, $2, $3, $4)
+          ON CONFLICT (judge_id, competition_id) 
+          DO UPDATE SET assigned_by = $3, assigned_at = NOW(), notes = $4
+          RETURNING *
+        `;
+
+        const result = await client.query(assignQuery, [id, competitionId, adminId, notes || null]);
+        assignments.push(result.rows[0]);
+
+      } catch (error) {
+        errors.push({ competitionId, error: error.message });
+      }
+    }
+
+    await client.query('COMMIT');
+
+    console.log(`✅ Assigned ${assignments.length} competitions to judge ${id}`);
+
+    res.status(200).json({
+      success: true,
+      message: `Assigned ${assignments.length} competition(s) to judge`,
+      data: {
+        assignments,
+        errors: errors.length > 0 ? errors : undefined
+      }
+    });
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('❌ Assign competitions error:', error);
+    next(error);
+  } finally {
+    client.release();
+  }
+};
+
+/**
+ * Remove competition assignment from judge (Admin only)
+ * DELETE /api/judges/:id/competitions/:competitionId
+ */
+const removeCompetitionFromJudge = async (req, res, next) => {
+  try {
+    const { id, competitionId } = req.params;
+
+    console.log(`🔍 Removing competition ${competitionId} from judge ${id}`);
+
+    const query = `
+      DELETE FROM judge_competitions 
+      WHERE judge_id = $1 AND competition_id = $2
+      RETURNING *
+    `;
+
+    const result = await db.query(query, [id, competitionId]);
+
+    if (result.rows.length === 0) {
+      return next(new AppError('Assignment not found', 404));
+    }
+
+    console.log(`✅ Removed competition ${competitionId} from judge ${id}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Competition assignment removed successfully',
+      data: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('❌ Remove competition error:', error);
+    next(error);
+  }
+};
+
+/**
+ * Get judges assigned to a competition (Admin only)
+ * GET /api/competitions/:id/judges
+ */
+const getCompetitionJudges = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    console.log(`🔍 Getting judges for competition ${id}`);
+
+    // Check if competition exists
+    const compCheck = await db.query('SELECT id, name FROM competitions WHERE id = $1', [id]);
+    if (compCheck.rows.length === 0) {
+      return next(new AppError('Competition not found', 404));
+    }
+
+    const query = `
+      SELECT 
+        j.id,
+        j.name,
+        j.display_name,
+        j.code,
+        j.is_active,
+        jc.assigned_at,
+        jc.notes,
+        u.username as assigned_by_username
+      FROM judge_competitions jc
+      JOIN judges j ON jc.judge_id = j.id
+      LEFT JOIN users u ON jc.assigned_by = u.id
+      WHERE jc.competition_id = $1
+      ORDER BY j.code ASC
+    `;
+
+    const result = await db.query(query, [id]);
+
+    console.log(`✅ Found ${result.rows.length} judges for competition ${id}`);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        competition: compCheck.rows[0],
+        judges: result.rows,
+        total: result.rows.length
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Get competition judges error:', error);
+    next(error);
+  }
+};
+
+/**
+ * Get assigned competitions for current judge (Judge auth required)
+ * GET /api/judges/my-competitions
+ * Uses judge session authentication
+ */
+const getMyAssignedCompetitions = async (req, res, next) => {
+  try {
+    // Get judge ID from session (set by authenticateJudgeSession middleware)
+    const judgeId = req.judge?.id;
+
+    if (!judgeId) {
+      return next(new AppError('Judge session not found', 401));
+    }
+
+    console.log(`🔍 Getting assigned competitions for judge ${judgeId}`);
+
+    const query = `
+      SELECT 
+        c.id,
+        c.name,
+        c.competition_type,
+        c.region,
+        c.division,
+        c.status,
+        c.start_date,
+        c.end_date,
+        c.created_at,
+        c.updated_at,
+        (
+          SELECT COUNT(*) 
+          FROM competition_athletes ca 
+          WHERE ca.competition_id = c.id
+        ) as athlete_count,
+        jc.assigned_at
+      FROM judge_competitions jc
+      JOIN competitions c ON jc.competition_id = c.id
+      WHERE jc.judge_id = $1
+        AND c.status IN ('active', 'upcoming')
+      ORDER BY 
+        CASE c.status
+          WHEN 'active' THEN 1
+          WHEN 'upcoming' THEN 2
+          ELSE 3
+        END,
+        c.start_date ASC,
+        c.name ASC
+    `;
+
+    const result = await db.query(query, [judgeId]);
+
+    console.log(`✅ Found ${result.rows.length} assigned competitions for judge ${judgeId}`);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        competitions: result.rows,
+        total: result.rows.length
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Get my assigned competitions error:', error);
+    next(error);
+  }
+};
+
 module.exports = {
   // Public judge identity selection endpoints (no auth required)
   getAvailableJudges,
@@ -755,5 +1042,14 @@ module.exports = {
   updateJudge,
   deleteJudge,
   toggleJudgeActive,
-  getJudgeStats
+  getJudgeStats,
+  
+  // Judge competition assignment endpoints (Admin auth required)
+  getJudgeCompetitions,
+  assignCompetitionsToJudge,
+  removeCompetitionFromJudge,
+  getCompetitionJudges,
+  
+  // Judge-side endpoints (Judge session auth required)
+  getMyAssignedCompetitions
 };
