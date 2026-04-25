@@ -994,6 +994,8 @@ const exportCompetitionToExcel = async (req, res, next) => {
           mergeRanges.push({ s: { r: startRow, c: 1 }, e: { r: endRow, c: 1 } });
           // Merge 学校 (column C, index 2)
           mergeRanges.push({ s: { r: startRow, c: 2 }, e: { r: endRow, c: 2 } });
+          // Merge 团队名称 (column D, index 3) - Important for duo/team competitions
+          mergeRanges.push({ s: { r: startRow, c: 3 }, e: { r: endRow, c: 3 } });
         }
       }
     });
