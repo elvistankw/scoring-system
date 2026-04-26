@@ -35,12 +35,57 @@ const COMPETITION_TYPE_RULES = {
  * Requirements: 3.3, 4.3, 5.3
  * 
  * @param {object} scores - Score dimensions object
+ * @param {string} competitionType - Type of competition (optional, for dynamic max score)
  * @returns {object} { valid: boolean, errors: array }
  */
-const validateScoreRange = (scores) => {
+const validateScoreRange = (scores, competitionType = null) => {
   const errors = [];
   const MIN_SCORE = 0;
-  const MAX_SCORE = 30;
+
+  // Get max score for each field based on competition type
+  const getMaxScore = (field) => {
+    // Challenge competition: action_difficulty can be up to 50
+    if (competitionType === 'challenge' && field === 'action_difficulty') {
+      return 50;
+    }
+    
+    // Individual competition
+    if (competitionType === 'individual') {
+      const maxScores = {
+        action_difficulty: 30,
+        stage_artistry: 25,
+        action_creativity: 20,
+        action_fluency: 15,
+        costume_styling: 10
+      };
+      return maxScores[field] || 30;
+    }
+    
+    // Duo/Team competition
+    if (competitionType === 'duo' || competitionType === 'team') {
+      const maxScores = {
+        action_difficulty: 35,
+        stage_artistry: 25,
+        action_interaction: 15,
+        action_creativity: 15,
+        costume_styling: 10
+      };
+      return maxScores[field] || 35;
+    }
+    
+    // Challenge competition (other fields)
+    if (competitionType === 'challenge') {
+      const maxScores = {
+        action_difficulty: 50,
+        action_creativity: 30,
+        action_fluency: 20
+      };
+      return maxScores[field] || 50;
+    }
+    
+    // Default fallback: 30
+    return 30;
+  };
 
   for (const [field, value] of Object.entries(scores)) {
     if (value === null || value === undefined) {
@@ -54,8 +99,10 @@ const validateScoreRange = (scores) => {
       continue;
     }
 
-    if (numValue < MIN_SCORE || numValue > MAX_SCORE) {
-      errors.push(`${field} must be between ${MIN_SCORE} and ${MAX_SCORE} (received: ${numValue})`);
+    const maxScore = getMaxScore(field);
+    
+    if (numValue < MIN_SCORE || numValue > maxScore) {
+      errors.push(`${field} must be between ${MIN_SCORE} and ${maxScore} (received: ${numValue})`);
     }
   }
 
@@ -183,8 +230,8 @@ const submitScore = async (req, res, next) => {
       return next(new AppError(`Score validation failed: ${fieldValidation.errors.join(', ')}`, 400));
     }
 
-    // 5. Validate score ranges (0-30)
-    const rangeValidation = validateScoreRange(scores);
+    // 5. Validate score ranges (dynamic based on competition type)
+    const rangeValidation = validateScoreRange(scores, competition.competition_type);
     if (!rangeValidation.valid) {
       return next(new AppError(`Score range validation failed: ${rangeValidation.errors.join(', ')}`, 400));
     }
@@ -695,11 +742,12 @@ const partialScoreUpdate = async (req, res, next) => {
       return next(new AppError(`Invalid field: ${field}`, 400));
     }
 
-    // 3. Validate value range (0-30, or null)
+    // 3. Validate value range (dynamic based on competition type if available, or 0-50 for challenge)
     if (value !== null && value !== undefined) {
       const numValue = parseFloat(value);
-      if (isNaN(numValue) || numValue < 0 || numValue > 30) {
-        return next(new AppError(`Invalid value: ${value}. Must be between 0-30 or null`, 400));
+      // For partial updates, we allow up to 50 to support challenge competitions
+      if (isNaN(numValue) || numValue < 0 || numValue > 50) {
+        return next(new AppError(`Invalid value: ${value}. Must be between 0-50 or null`, 400));
       }
     }
 
@@ -990,8 +1038,8 @@ const batchSubmitScores = async (req, res, next) => {
         return next(new AppError(`Score validation failed for athlete ${athlete_id}: ${fieldValidation.errors.join(', ')}`, 400));
       }
 
-      // Validate score ranges
-      const rangeValidation = validateScoreRange(scores);
+      // Validate score ranges (dynamic based on competition type)
+      const rangeValidation = validateScoreRange(scores, competition.competition_type);
       if (!rangeValidation.valid) {
         return next(new AppError(`Score range validation failed for athlete ${athlete_id}: ${rangeValidation.errors.join(', ')}`, 400));
       }
@@ -1210,8 +1258,8 @@ const updateScore = async (req, res, next) => {
     const existingScore = scoreResult.rows[0];
     const competitionType = existingScore.competition_type;
 
-    // Validate score range
-    const rangeValidation = validateScoreRange(scoreData);
+    // Validate score range (dynamic based on competition type)
+    const rangeValidation = validateScoreRange(scoreData, competitionType);
     if (!rangeValidation.valid) {
       return res.status(400).json({
         success: false,

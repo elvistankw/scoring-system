@@ -217,6 +217,37 @@ export function CompetitionScoresManager({ competitionId, competitionType }: Com
     return labels[field] || field;
   };
 
+  // Get max score for a field based on competition type
+  const getMaxScore = (field: string): number => {
+    if (competitionType === 'individual') {
+      const maxScores: Record<string, number> = {
+        action_difficulty: 30,
+        stage_artistry: 25,
+        action_creativity: 20,
+        action_fluency: 15,
+        costume_styling: 10,
+      };
+      return maxScores[field] || 30;
+    } else if (competitionType === 'duo' || competitionType === 'team') {
+      const maxScores: Record<string, number> = {
+        action_difficulty: 35,
+        stage_artistry: 25,
+        action_interaction: 15,
+        action_creativity: 15,
+        costume_styling: 10,
+      };
+      return maxScores[field] || 35;
+    } else if (competitionType === 'challenge') {
+      const maxScores: Record<string, number> = {
+        action_difficulty: 50,
+        action_creativity: 30,
+        action_fluency: 20,
+      };
+      return maxScores[field] || 50;
+    }
+    return 30; // Default fallback
+  };
+
   const scoreFields = getScoreFields();
 
   // Paginate athletes
@@ -437,25 +468,28 @@ export function CompetitionScoresManager({ competitionId, competitionType }: Com
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
-                        {scoreFields.map((field) => (
-                          <div key={field}>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                              {getFieldLabel(field)}
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              max="30"
-                              step="0.1"
-                              value={editFormData[field] || 0}
-                              onChange={(e) => setEditFormData({
-                                ...editFormData,
-                                [field]: parseFloat(e.target.value) || 0
-                              })}
-                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                            />
-                          </div>
-                        ))}
+                        {scoreFields.map((field) => {
+                          const maxScore = getMaxScore(field);
+                          return (
+                            <div key={field}>
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                {getFieldLabel(field)}
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                max={maxScore}
+                                step="0.1"
+                                value={editFormData[field] || 0}
+                                onChange={(e) => setEditFormData({
+                                  ...editFormData,
+                                  [field]: parseFloat(e.target.value) || 0
+                                })}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                          );
+                        })}
                       </div>
 
                       <div className="flex gap-2 justify-end">
